@@ -87,12 +87,13 @@ void dyn_test(){
   s_grid_save_file( Sg, "S_", "", fname );
   /* Initializing variables needed for the dynamics */
   printf("Initializing dynamic variable \n");
-  double k_w[] = { 2.0, 4.0, 5.0, 2.0*M_PI, 7.18 }; const int nk_w = sizeof(k_w) / sizeof(k_w[0]);
-  save_dyn_vars dyn; save_dyn_vars_ini(&dyn, nk_w, folder, "", fname );
-  memcpy(dyn.k->data, k_w, sizeof(double)*nk_w);
-  gsl_vector_s_function_selector_mono_sph(dyn.S, sys, approx, fun, dyn.k, lp); 
   save_dyn_op op = save_dyn_op_ini();
   dyn_scalar ds = dyn_scalar_ini();
+  double k_w[] = { 2.0, 4.0, 5.0, 2.0*M_PI, 7.18 }; const int nk_w = sizeof(k_w) / sizeof(k_w[0]);
+  save_dyn_vars dyn; save_dyn_vars_ini(&dyn, op, nk_w, folder, "", fname );
+  memcpy(dyn.k->data, k_w, sizeof(double)*nk_w);
+  gsl_vector_s_function_selector_mono_sph(dyn.S, sys, approx, fun, dyn.k, lp); 
+  
   /* Computing the dynamics */
   printf("%s \n", "Initializing dynamics");
   dynamics_sph_mono( lp, dp, Sg, &dyn, op, &ds );
@@ -153,7 +154,63 @@ void quench_test(){
   printf("%s \n", fname);
   printf("Initialization of quench \n");
   fflush(stdout);
-  inst_change_mono_sph( icv, folder, fname, dp, op );
+  inst_change_mono_sph( icv, folder, fname, dp, op, 1 );
+  free(fname);
+  liquid_params_free(&lp_i);
+  liquid_params_free(&lp_f);
+  inst_change_vars_free(&icv);
+  return ;
+}
+
+void quench_SALR(double phi, double Tf){
+  /* Initial state parameters */
+  double dim = 3.0;
+  double phi_i=phi; double zA=1.0; double zR=0.5; double A=0.5;
+  /*double T_i=1.0;*/
+  liquid_params lp_i = liquid_params_ini_phi(phi_i, dim, 0); 
+  /*lp_i.Tem=T_i; lp_i.up[0]=1.0/A; lp_i.up[1]=zA; lp_i.up[2]=zR;*/
+  char * sys_i="HS";
+  char * approx_i="VW";
+  /* Final state parameters */
+  double phi_f=phi;
+  double T_f = Tf;
+  liquid_params lp_f = liquid_params_ini_phi(phi_f, dim, 3); 
+  lp_f.Tem=T_f; lp_f.up[0]=1.0/A; lp_f.up[1]=zA; lp_f.up[2]=zR;  
+  char * sys_f="HSDBLEYUK";
+  char * approx_f="SH";
+  /* Wave vector variables: number of points, segmentation, nodes, weights, integration variables and associated vectors */
+  const int knp  = pow(2,10);
+  const int knph = knp / 2;
+  const double k0=0.0,k2=40.96,k1=k2/4.0; /* nodes limits */ 
+  gsl_integration_fixed_workspace * w1, * w2;
+  const gsl_integration_fixed_type * int_T = gsl_integration_fixed_legendre;
+  w1 = gsl_integration_fixed_alloc(int_T, knph, k0, k1, 0.0, 0.0);
+  w2 = gsl_integration_fixed_alloc(int_T, knph, k1, k2, 0.0, 0.0);
+  double kwr[] = {2.0,4.0,5.0,2.0*M_PI,7.18};
+  const int knwr = sizeof(kwr)/sizeof(kwr[0]);
+  /**/
+  printf("initializing inst change vars \n");
+  inst_change_vars icv = inst_change_vars_ini(knp, knwr, lp_i, lp_f);
+  gsl_vectors_composed_integration_space(w1,w2, &icv.k, &icv.kw);\
+  gsl_integration_fixed_free(w1); gsl_integration_fixed_free(w2);
+  memcpy(icv.kwr->data,kwr,sizeof(kwr)); 
+  /* Defining Dynamic variables */
+  dyn_params dp = dyn_params_ini_std(); /* dyn_params_ini_HD(); */
+  save_dyn_op op = save_dyn_op_ini();
+  char * folder="./data/SALR/";
+  char * fname= (char *)malloc(400*sizeof(char));
+  /* Computing structure factor for initial and final state */
+  printf("computing initial and final structure \n");
+  gsl_vector_s_function_selector_mono_sph(icv.Si, sys_i, approx_i, "sk", icv.k, lp_i);
+  gsl_vector_s_function_selector_mono_sph(icv.Sf, sys_f, approx_f, "sk", icv.k, lp_f);
+  gsl_vector_s_function_selector_mono_sph(icv.Swri, sys_i, approx_i, "sk", icv.kwr, lp_i);
+  gsl_vector_s_function_selector_mono_sph(icv.Swrf, sys_f, approx_f, "sk", icv.kwr, lp_f);
+  s_name_constructor(sys_f,approx_f, "dat",1,lp_f, &fname );
+  printf("name constructed \n");
+  printf("%s \n", fname);
+  printf("Initialization of quench \n");
+  fflush(stdout);
+  inst_change_mono_sph( icv, folder, fname, dp, op, 1 );
   free(fname);
   liquid_params_free(&lp_i);
   liquid_params_free(&lp_f);
@@ -206,9 +263,9 @@ void HD_eq_dyn(){
     printf("name constructed \n");
     printf("%s \n", fname);
     s_grid_save_file( Sg, folder,prefix, fname );
-    save_dyn_vars dyn; save_dyn_vars_ini(&dyn, 5, folder, prefix, fname); /*save_dyn_vars_ini( char * prefix, char * suffix );*/
     save_dyn_op op = save_dyn_op_ini();
     dyn_scalar ds = dyn_scalar_ini();
+    save_dyn_vars dyn; save_dyn_vars_ini(&dyn, op, 5, folder, prefix, fname); /*save_dyn_vars_ini( char * prefix, char * suffix );*/
     printf("%s %1.9e %s %1.9e %s %1.9e \n","lp.phi=",lp.phi, "lp.rho=",lp.rho, "lp.dim=",lp.dim);
     printf("Initialization of dynamics \n");
     dyn.k->data[0] = 2.0;
@@ -350,7 +407,7 @@ void HD_eq_dyn_near_arrest(){
     dphi = dphi*interval;
     gsl_vector_s_function_selector_mono_sph(Sg.S, sys, approx, fun, Sg.k,  lp_fluid);
     s_grid_save_file( Sg, folder,prefix, fname );
-    save_dyn_vars_ini(&dyn, 5, folder, prefix, fname );
+    save_dyn_vars_ini(&dyn, op, 5, folder, prefix, fname );
     dyn.k->data[0]=2.0; dyn.k->data[1]=4.0; dyn.k->data[2]=5.0; dyn.k->data[3]=2.0*M_PI; dyn.k->data[4]=7.18;
     gsl_vector_s_function_selector_mono_sph(dyn.S, sys, approx, fun, dyn.k, lp_fluid);
     dynamics_sph_mono( lp_fluid, dp, Sg, &dyn, op, &ds );
@@ -365,11 +422,20 @@ int main(void) {
   clock_t start,end;
   start = clock();
   printf("Program started\n");
+  double phi;
+  double Tf;
+  int i1;
+  /*printf("Please state a volume fraction to initiate \n");
+  scanf("%lf", &phi);
+  printf("%s %1.9e \n","You chose phi= ", phi);
+  for (i1=5; i1<=80; i1++) { Tf = i1 * 0.01; }*/
+  phi=0.15;
+  for (i1=0; i1<20; ++i1){Tf=(40-i1) * 0.01;quench_SALR(phi,Tf);}
   /*dyn_test();*/
   /*HD_arrest_finding();*/
   /*HD_eq_dyn_near_arrest();*/
   /*HD_eq_dyn();*/
-  quench_test();
+  /*quench_test();*/
   /*test_gamma_quench();*/
   end=clock();
   double time_taken = ((double)(end-start))/ CLOCKS_PER_SEC;

@@ -18,8 +18,8 @@ inst_change_vars_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
   icv.lpi=liquid_params_ini_phi(lpi.phi, lpi.dim, lpi.nup);
   icv.lpf=liquid_params_ini_phi(lpf.phi, lpf.dim, lpf.nup);
   icv.lpi.Tem=lpi.Tem;icv.lpf.Tem=lpf.Tem;
-  memcpy(icv.lpi.up, lpi.up,sizeof(lpi.up)); 
-  memcpy(icv.lpf.up, lpf.up,sizeof(lpf.up));
+  if (lpi.nup>0){memcpy(icv.lpi.up, lpi.up,sizeof(lpi.up));} 
+  if (lpf.nup>0){memcpy(icv.lpf.up, lpf.up,sizeof(lpf.up));}
   return icv;
 }
 
@@ -123,11 +123,12 @@ gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
 }
 
 void
-inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_params dp, save_dyn_op op ) {
+inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_params dp, save_dyn_op op, int write_S ) {
   int knp=icv.k->size;
   int knpwr=icv.Swri->size;
-  structure_grid Sg = {NULL,NULL,NULL}; structure_grid_ini(&Sg,knp); 
+  structure_grid Sg = {NULL,NULL,NULL}; structure_grid_ini(&Sg,knp);  
   gsl_vector_memcpy(Sg.k,icv.k); gsl_vector_memcpy(Sg.kw,icv.kw);
+ 
   dyn_scalar ds = dyn_scalar_ini();
   dyn_scalar dsf = dyn_scalar_ini();
   dyn_scalar ds_save = dyn_scalar_ini();
@@ -140,9 +141,18 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   int i1, convergence;
   double du_dt_1, du_dt_2, du, dt, t_pre, Dl_pre, t_save, u_save, du_save;
   double e_Dl;
-  char * u_char=(char *)malloc(10*sizeof(char));
+  char * u_char=(char *)malloc(20*sizeof(char));
+  char * u_char_S=(char *)malloc(20*sizeof(char));
+  char * u_char_g=(char *)malloc(20*sizeof(char));
   /* Minimum mobility tolerance and file writting scale in terms of waiting time powers */
   const double tol_Dl=dp.tol, t_save_scale= pow(10.0,0.1);
+  int write_dyn = 0;
+  /* Radial distribution function grid initialization */
+  int rnp = 1000;
+  double rmax = 10.0;
+  structure_grid gr = {NULL,NULL,NULL}; structure_grid_ini(&gr,rnp);
+  for (i1=0; i1<rnp; i1++){ gr.k->data[i1] = rmax * ( (double) i1 / (double) rnp) ; gr.kw->data[i1] = 0.0;}
+  if ( op.write_deleta == 1 || op.write_delz == 1 || op.write_F == 1 || op.write_taua == 1 || write_S == 1 ) { write_dyn = 1; }
   /* Save format and variables for mobility files */
   printf("Opening files\n");
   char * t_file_name = (char *)malloc(400*sizeof(char));
@@ -153,10 +163,13 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   strcpy(t_file_name,folder); 
   strcat(t_file_name,"t_save_"); 
   strcat(t_file_name, fname);
-  FILE * t_save_file=fopen(t_file_name,"w");
-  free(t_file_name);
-  fprintf(t_save_file,"#|| 1 quench id || 2 t || 3 u(t) || 4 b(t) ||# \n" );
+  FILE * t_save_file;
   fprintf(t_file,"#|| 1 t || 2 b(t) || 3 u(t) || 4 uₐ-u(t) ||# \n" );
+  if (write_dyn == 1) {
+    t_save_file=fopen(t_file_name,"w");
+    fprintf(t_save_file,"#|| 1 quench id || 2 t || 3 u(t) || 4 b(t) ||# \n" );
+  }
+  free(t_file_name);
   int i_save=0;
   /* Computing limit values of ua */
   printf("computing ua\n");
@@ -167,16 +180,24 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   printf("computing initial dynamics\n");
   gsl_vector_memcpy(Sg.S,icv.Si); 
   sprintf(u_char,"%s%03d%s","u_",0,"_");
-  save_dyn_vars_ini(&dyn_save, icv.kwr->size, folder, u_char, fname); 
+  sprintf(u_char_S,"%s%03d%s","u_",0,"_S_");
+  sprintf(u_char_g,"%s%03d%s","u_",0,"_g_");
+  save_dyn_vars_ini(&dyn_save, op, icv.kwr->size, folder, u_char, fname); 
   gsl_vector_memcpy(dyn_save.k,icv.kwr);
   gsl_vector_memcpy(dyn_save.S,icv.Swri);
-  s_grid_save_file( Sg, folder, u_char, fname );
+  if ( write_S == 1 ) {
+    s_grid_save_file( Sg, folder, u_char_S, fname ); 
+    gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
+    s_grid_save_file( gr, folder, u_char_g, fname );
+  }
   dynamics_sph_mono( icv.lpi, dp, Sg, &dyn_save, op, &ds );
   save_dyn_vars_free(&dyn_save);
   /* Computing final state dynamics */
   printf("computing final dynamics\n");
-  sprintf(u_char,"%s%03d%s","u_",999,"_"); 
-  save_dyn_vars_ini(&dyn_save, icv.kwr->size, folder, u_char, fname);
+  sprintf(u_char,"%s%03d%s","u_",999,"_");
+  sprintf(u_char_S,"%s%03d%s","u_",999,"_S_"); 
+  sprintf(u_char_g,"%s%03d%s","u_",999,"_g_");
+  save_dyn_vars_ini(&dyn_save, op, icv.kwr->size, folder, u_char, fname);
   gsl_vector_memcpy(dyn_save.k,icv.kwr);
   if ( ua < 1E40){
     sku_inst_change_mono_sph(&Sg.S,icv.Si, icv.Sf, aux_a, ua);
@@ -188,7 +209,11 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
     gsl_vector_memcpy(dyn_save.S,icv.Swrf);
     dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, op, &dsf );
   }
-  s_grid_save_file( Sg, folder, u_char, fname );
+  if ( write_S == 1 ) {
+    s_grid_save_file( Sg, folder, u_char_S, fname ); 
+    gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
+    s_grid_save_file( gr, folder, u_char_g, fname );
+    }
   save_dyn_vars_free(&dyn_save);
   /* Variables initialization for the waiting times loop */
   convergence = 0;
@@ -198,7 +223,7 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   t_save  = 1E-3;
   du_dt_1 = 0.0;
   i_save  = 0;
-  fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, ds.Dl );
+  if (write_dyn == 1) {fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, ds.Dl );}
   fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", 0.0, ds.Dl, 0.0, ua );
   while ( convergence == 0 ){
     /* Computing the dynamics for the next u-value */
@@ -210,8 +235,9 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
     dt = du / ds.Dl;
     t += dt;
     /* Computing the change in du in terms of change in (du/dt)  */
-    if( Dl_pre / ds.Dl > 1.05 || ds.Dl / Dl_pre > 1.05 ){du *= 0.5;}
-    else{ du *= 2.0; }
+    if( Dl_pre / ds.Dl > 1.05) {du *= 0.05 / ( ( Dl_pre / ds.Dl ) - 1.0) ;}
+    else if( ds.Dl / Dl_pre > 1.05) {du *= 0.05 / ( ( ds.Dl / Dl_pre ) - 1.0);}
+    else if ( u + 2.0*du < ua && 2.0 * du < 0.05 * ua ) { du *= 2.0; }
     /* Computing the decision to end the time loop */
     e_Dl = fabs(1.0 - ( ds.Dl / dsf.Dl )); /* Error between current Dl and final Dl */
     if ( e_Dl < tol_Dl || u >= ua || ds.Dl <=tol_Dl ){convergence=1;}
@@ -220,16 +246,21 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
       fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, ds.Dl, u, ua-u );
       fflush(t_file);
       /* Computing the dynamics for the time-save value */
-      if ( t_pre <= t_save && t > t_save  ){
+      
+      while ( t_pre <= t_save && t > t_save && write_dyn == 1 ){
         i_save +=1;
-        sprintf(u_char,"%s%03d%s","u_",i_save,"_"); 
-        save_dyn_vars_ini( &dyn_save, icv.kwr->size, folder, u_char, fname);
+        sprintf(u_char,"%s%03d%s","u_",i_save,"_");
+        sprintf(u_char_S,"%s%03d%s","u_",i_save,"_S_");
+        sprintf(u_char_g,"%s%03d%s","u_",i_save,"_g_"); 
+        save_dyn_vars_ini( &dyn_save, op, icv.kwr->size, folder, u_char, fname);
         gsl_vector_memcpy(dyn_save.k,icv.kwr);
         du_save = ( t_save - t_pre ) * 0.5 * ( ds.Dl + Dl_pre );
         u_save  = u-du + du_save;
         sku_inst_change_mono_sph(&Sg.S, icv.Si, icv.Sf, aux_a, u_save);
         sku_inst_change_mono_sph(&dyn_save.S, icv.Swri, icv.Swrf, aux_a_w, u_save);
-        s_grid_save_file( Sg, folder, u_char, fname );
+        s_grid_save_file( Sg, folder, u_char_S, fname );
+        gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
+        s_grid_save_file( gr, folder, u_char_g, fname );
         dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, op, &ds_save );
         fprintf(t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, t_save, u_save, ds_save.Dl );
         fflush(t_save_file);
@@ -239,10 +270,13 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
     }
   }
   fprintf(t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, dsf.Dl, ua, 0.0 );
-  fclose(t_save_file);
+  if (write_dyn == 1) {fclose(t_save_file);}
   fclose(t_file);
   gsl_vector_free(aux_a);
   gsl_vector_free(aux_a_w);
   free(u_char);
+  free(u_char_S);
+  free(u_char_g);
   structure_grid_free(&Sg);
+  structure_grid_free(&gr);
 }

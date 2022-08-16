@@ -30,7 +30,7 @@ void inst_change_vars_free(inst_change_vars * icv);
 void aux_ic_sph_mono(gsl_vector ** aux_a, gsl_vector * k, gsl_vector * Skf, double D0 );
 void sku_inst_change_mono_sph(gsl_vector ** Sku, const gsl_vector * Ski, const gsl_vector * Skf, const gsl_vector * aux_a, const double u);
 void inst_change_gamma_ua_sph_mono(inst_change_vars icv, gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua );
-void inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_params dp, save_dyn_op op );
+void inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_params dp, save_dyn_op op, int write_S );
 /*
 void
 inst_change_mono_sph( inst_change_vars icv, dyn_params dp, save_dyn_vars * dyn, save_dyn_op op )

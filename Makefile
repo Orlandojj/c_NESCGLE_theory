@@ -14,9 +14,10 @@ s_dir = ./structures/
 HS = Hard_Sphere
 HSSW = $(HS)_Square_Well
 HSDBLEXP = $(HS)_Double_Exp
+HSDBLEYUK = $(HS)_Double_Yukawa
 #2D#
 HD = Hard_Disk
-s_libraries = $(HS) $(HSSW) $(HD) $(HSDBLEXP)
+s_libraries = $(HS) $(HSSW) $(HD) $(HSDBLEXP) $(HSDBLEYUK)
 #####  Dynamics  #####
 d_dir = ./dynamics/
 #Dynamic libraries#
@@ -66,6 +67,11 @@ HSDBLEXPdir = $(s_dir)$(HSDBLEXP)/
 HSDBLEXPdep = $(HSDBLEXPdir)$(HSDBLEXP).c $(HSDBLEXPdir)$(HSDBLEXP).h $(o_dir)$(HS).o
 $(o_dir)$(HSDBLEXP).o: $(HSDBLEXPdep)
 	gcc -c $(HSDBLEXPdir)$(HSDBLEXP).c -o $(o_dir)$(HSDBLEXP).o $(gsl) $(gflags)
+
+HSDBLEYUKdir = $(s_dir)$(HSDBLEYUK)/
+HSDBLEYUKdep = $(HSDBLEYUKdir)$(HSDBLEYUK).c $(HSDBLEYUKdir)$(HSDBLEYUK).h $(o_dir)$(HS).o
+$(o_dir)$(HSDBLEYUK).o: $(HSDBLEYUKdep)
+	gcc -c $(HSDBLEYUKdir)$(HSDBLEYUK).c -o $(o_dir)$(HSDBLEYUK).o $(gsl) $(gflags)
 
 HDdir = $(s_dir)$(HD)/
 HDdep = $(HDdir)$(HD).c $(HDdir)$(HD).h

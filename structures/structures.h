@@ -14,7 +14,8 @@ system folder. For the imported impl */
 #include "./Hard_Sphere/Hard_Sphere.h" /* Hard Sphere header */
 #include "./Hard_Disk/Hard_Disk.h" /* Hard Disk header */
 #include "./Hard_Sphere_Square_Well/Hard_Sphere_Square_Well.h" /* Hard Sphere Square Well header */
-#include "./Hard_Sphere_Double_Exp/Hard_Sphere_Double_Exp.h" /* Hard Sphere Square Well header */
+#include "./Hard_Sphere_Double_Exp/Hard_Sphere_Double_Exp.h" /* Hard Sphere Square Double Yukawa */
+#include "./Hard_Sphere_Double_Yukawa/Hard_Sphere_Double_Yukawa.h" /* Hard Sphere Double Yukawa header */
 
 typedef struct structure_grid{
 	gsl_vector * k;
@@ -69,6 +70,10 @@ double liquid_params_norm(liquid_params lp);
 void structure_grid_free(structure_grid * Sg);
 
 void structure_grid_memcpy(structure_grid dest, const structure_grid source);
+
+double radial_distribution_3D(double r, double rho, const structure_grid Sg);
+
+void gsl_vector_radial_distribution_3D(gsl_vector * g, gsl_vector * r, double rho, const structure_grid Sg);
 
 
 #endif /* STRUCTURES_DOT_H */

@@ -88,7 +88,7 @@ save_dyn_op save_dyn_op_ini();
 
 save_dyn_op no_save_dyn_op_ini();
 
-void save_dyn_vars_ini( save_dyn_vars * sdv, const int knp, const char * folder, const char * prefix, const char * suffix );
+void save_dyn_vars_ini( save_dyn_vars * sdv, const save_dyn_op so, const int knp, const char * folder, const char * prefix, const char * suffix );
 
 dyn_scalar dyn_scalar_ini();
 

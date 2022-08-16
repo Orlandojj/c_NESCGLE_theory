@@ -124,10 +124,10 @@ liquid_params_norm(liquid_params lp){
 void
 s_name_constructor(const char * sys, const char * approx, const char * extension, const int id,
 const liquid_params lp, char ** name ){
-  	char id_char[2];
-  	char phi_char[6];
-	char dum_char1[6];
-  	char dum_char2[6];
+  	char id_char[3];
+  	char phi_char[7];
+	char dum_char1[7];
+  	char dum_char2[7];
   	int int_phi_2;
   	int int_dum_1, int_dum_2, i1;
 	double dum1;
@@ -175,67 +175,97 @@ const liquid_params lp, char ** name ){
 double
 s_function_selector_mono_sph( const char * sys, const char * approx, const char * fun, const
 double k, const liquid_params lp ){
-  if (strcmp( sys, "HS" ) == 0 ){
-    if (strcmp( approx, "PY" ) == 0 ) {
-      if (strcmp( fun, "ck" ) == 0 ){ return ck_hs_py( lp.phi, k );}
-      else if (strcmp( fun, "is" ) == 0 ){ return is_hs_py( lp.phi, k );}
-      else if (strcmp( fun, "sk" ) == 0 ){ return sk_hs_py( lp.phi, k );}
-    }
-    else if (strcmp( approx, "VW" ) == 0 ) {
-      if (strcmp( fun, "ck" ) == 0 ){ return ck_hs_vw( lp.phi, k );}
-      else if (strcmp( fun, "is" ) == 0 ){ return is_hs_vw( lp.phi, k );}
-      else if (strcmp( fun, "sk" ) == 0 ){ return sk_hs_vw( lp.phi, k );}
-    }
-    else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
-  }
-  else if ( strcmp( sys, "HSSW" ) == 0 ){
-    double lambda = lp.up[0];
-    if (strcmp( approx, "SH" ) == 0 ) {
-      if (strcmp( fun, "ck" ) == 0 ){ return ck_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
-      else if (strcmp( fun, "is" ) == 0 ){ return is_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
-      else if (strcmp( fun, "sk" ) == 0 ){ return sk_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
-    }
-    else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
-  }
-  else if ( strcmp( sys, "HSDBLEXP" ) == 0 ){
-	if ( lp.nup == 3 ) {
-		double Ta = lp.Tem;
-		double Tr = lp.up[0];
-		double za = lp.up[1];
-		double zr = lp.up[2];
-		if (strcmp( approx, "SH" ) == 0 ) {
-		if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
-		else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
-		else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+  	if (strcmp( sys, "HS" ) == 0 ){
+		if (strcmp( approx, "PY" ) == 0 ) {
+			if (strcmp( fun, "ck" ) == 0 ){ return ck_hs_py( lp.phi, k );}
+			else if (strcmp( fun, "is" ) == 0 ){ return is_hs_py( lp.phi, k );}
+			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hs_py( lp.phi, k );}
+		}
+		else if (strcmp( approx, "VW" ) == 0 ) {
+			if (strcmp( fun, "ck" ) == 0 ){ return ck_hs_vw( lp.phi, k );}
+			else if (strcmp( fun, "is" ) == 0 ){ return is_hs_vw( lp.phi, k );}
+			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hs_vw( lp.phi, k );}
 		}
 		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
 	}
-	else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+	else if ( strcmp( sys, "HSSW" ) == 0 ){
+		double lambda = lp.up[0];
+		if (strcmp( approx, "SH" ) == 0 ) {
+			if (strcmp( fun, "ck" ) == 0 ){ return ck_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
+			else if (strcmp( fun, "is" ) == 0 ){ return is_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
+			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
+		}
+		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
 	}
+	else if ( strcmp( sys, "HSDBLEXP" ) == 0 ){
+		if ( lp.nup == 3 ) {
+			double Ta = lp.Tem;
+			double Tr = lp.up[0];
+			double za = lp.up[1];
+			double zr = lp.up[2];
+			if (strcmp( approx, "SH" ) == 0 ) {
+				if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+			}
+			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		}
+		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		}
 	else if ( strcmp( sys, "HSDBLEXP2" ) == 0 ){
-	if ( lp.nup == 3 ) {
-		double Ta = lp.Tem;
-		double Tr = lp.up[0];
-		double za = lp.up[1];
-		double zr = lp.up[2];
-		if (strcmp( approx, "SH" ) == 0 ) {
-		if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
-		else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
-		else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+		if ( lp.nup == 3 ) {
+			double Ta = lp.Tem;
+			double Tr = lp.up[0];
+			double za = lp.up[1];
+			double zr = lp.up[2];
+			if (strcmp( approx, "SH" ) == 0 ) {
+				if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+			}
+			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
 		}
-		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
 	}
-	else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+	else if ( strcmp( sys, "HSDBLEYUK" ) == 0 ){
+		if ( lp.nup == 3 ) {
+			double Ta = lp.Tem;
+			double Tr = lp.up[0];
+			double za = lp.up[1];
+			double zr = lp.up[2];
+			if (strcmp( approx, "SH" ) == 0 ) {
+				if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_yukawa_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_yukawa_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_yukawa_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
+			}
+			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		}
+		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		}
+	else if ( strcmp( sys, "HSDBLEYUK2" ) == 0 ){
+		if ( lp.nup == 3 ) {
+			double Ta = lp.Tem;
+			double Tr = lp.up[0];
+			double za = lp.up[1];
+			double zr = lp.up[2];
+			if (strcmp( approx, "SH" ) == 0 ) {
+				if (strcmp( fun, "ck" ) == 0 ){ return ck_dble_yukawa_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_yukawa_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_yukawa_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
+			}
+			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		}
+		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
 	}
 	else if ( strcmp( sys, "HD" ) == 0 ){
-    if (strcmp( approx, "ROTH" ) == 0 ) {
-      if (strcmp( fun, "ck" ) == 0 ){ return ck_hd_roth( lp.phi, k );}
-      else if (strcmp( fun, "is" ) == 0 ){ return is_hd_roth( lp.phi, k );}
-      else if (strcmp( fun, "sk" ) == 0 ){ return sk_hd_roth( lp.phi, k );}
-    }
-    else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
-  }
-  else{printf("Not a valid structural system \n");exit(1);}
+		if (strcmp( approx, "ROTH" ) == 0 ) {
+			if (strcmp( fun, "ck" ) == 0 ){ return ck_hd_roth( lp.phi, k );}
+			else if (strcmp( fun, "is" ) == 0 ){ return is_hd_roth( lp.phi, k );}
+			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hd_roth( lp.phi, k );}
+		}
+		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+	}
+	else{printf("Not a valid structural system \n");exit(1);}
 }
 
 void
@@ -243,6 +273,36 @@ gsl_vector_s_function_selector_mono_sph(gsl_vector * sk, const char * sys,
 const char * approx, const char * fun, const gsl_vector * k, liquid_params lp ){
 	if ( k!=NULL && sk!=NULL ){
 		int i1; for (i1=0; i1<k->size; ++i1){ sk->data[i1]=s_function_selector_mono_sph( sys, approx, fun,  k->data[i1], lp ); }
+		}
+	else{ printf("Warning, check for unitialized structure or wave-vector vectors \n");}
+	return;
+}
+
+double
+radial_distribution_3D(double r, double rho, const structure_grid Sg){
+	int i1;
+	int size=Sg.k->size;
+	double k; double kw; double S; double Lorch; double delta;
+	double g;
+	gsl_vector * integrand=gsl_vector_alloc(size);
+	delta=M_PI / Sg.k->data[size-1];
+	for (i1=0; i1< Sg.k->size; ++i1){
+		k=Sg.k->data[i1];
+		kw=Sg.kw->data[i1];
+		S=Sg.S->data[i1];
+		Lorch =  sin(delta*k); /* Correction function for truncated FT which is also divided by k, eliminated in the integrand */
+		integrand->data[i1] =  ( S - 1.0 ) * sin( k * r ) * kw * Lorch ;
+	}
+	g = 1.0 + ( gsl_vector_sum(integrand) / ( 2.0 * M_PI * M_PI * rho * r * delta ) );
+	
+	gsl_vector_free(integrand);
+	return g;
+}
+
+void
+gsl_vector_radial_distribution_3D(gsl_vector * g, gsl_vector * r, double rho, const structure_grid Sg){
+	if ( g !=NULL && r!=NULL ){
+		int i1; for (i1=0; i1<r->size; ++i1){ g->data[i1]=radial_distribution_3D(r->data[i1], rho, Sg); }
 		}
 	else{ printf("Warning, check for unitialized structure or wave-vector vectors \n");}
 	return;

@@ -32,7 +32,7 @@ dyn_params_ini(int st, int it, double dtau, double kc, double D0 ){
 
 dyn_params
 dyn_params_ini_std(){
-	dyn_params dp={10,256,1e-7,2.0*M_PI*1.305,1.0,1E-6};
+	dyn_params dp={10,128,1e-7,2.0*M_PI*1.305,1.0,1E-6};
 	return dp;
 }
 
@@ -79,7 +79,7 @@ no_save_dyn_op_ini(){
 }
 
 void
-save_dyn_vars_ini( save_dyn_vars * sdv, const int knp, const char * folder, const char * prefix, const char * suffix ){
+save_dyn_vars_ini( save_dyn_vars * sdv, const save_dyn_op so, const int knp, const char * folder, const char * prefix, const char * suffix ){
 	const int tfb = 2 * (sizeof(folder) + sizeof(prefix) + sizeof(suffix) + 100*sizeof(char));
 	char * dyn_name  = (char *)malloc(tfb);
 	char * taua_name = (char *)malloc(tfb);
@@ -109,10 +109,13 @@ save_dyn_vars_ini( save_dyn_vars * sdv, const int knp, const char * folder, cons
 	sdv->dele=NULL;
 	sdv->Fc=NULL;
 	sdv->Fs=NULL;
-	sdv->F_dyn  = fopen(dyn_name, "w");
-	sdv->F_Fc   = fopen(fc_name, "w");
-	sdv->F_Fs   = fopen(fs_name, "w");
-	sdv->F_taua = fopen(taua_name, "w");
+	if ( so.write_F == 1) {
+		sdv->F_Fc   = fopen(fc_name, "w");
+		sdv->F_Fs   = fopen(fs_name, "w");
+	}
+	if ( so.write_taua == 1 ){ sdv->F_taua = fopen(taua_name, "w"); } 
+	if ( so.write_deleta == 1 || so.write_delz == 1 ) {sdv->F_dyn  = fopen(dyn_name, "w");}
+	
 	free(dyn_name);
 	free(taua_name);
 	free(fc_name);
