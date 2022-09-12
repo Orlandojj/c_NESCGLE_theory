@@ -3,6 +3,7 @@
 inst_change_vars
 inst_change_vars_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
   inst_change_vars icv;
+  int i1;
   icv.k=gsl_vector_alloc(knp);
   icv.kw=gsl_vector_alloc(knp);
   icv.Si=gsl_vector_alloc(knp);
@@ -18,8 +19,8 @@ inst_change_vars_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
   icv.lpi=liquid_params_ini_phi(lpi.phi, lpi.dim, lpi.nup);
   icv.lpf=liquid_params_ini_phi(lpf.phi, lpf.dim, lpf.nup);
   icv.lpi.Tem=lpi.Tem;icv.lpf.Tem=lpf.Tem;
-  if (lpi.nup>0){memcpy(icv.lpi.up, lpi.up,sizeof(lpi.up));} 
-  if (lpf.nup>0){memcpy(icv.lpf.up, lpf.up,sizeof(lpf.up));}
+  if (lpi.nup>0){for (i1=0; i1<lpi.nup; ++i1){icv.lpi.up[i1] = lpi.up[i1];}}
+  if (lpf.nup>0){for (i1=0; i1<lpf.nup; ++i1){icv.lpf.up[i1] = lpf.up[i1];}}
   return icv;
 }
 
@@ -145,11 +146,11 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   char * u_char_S=(char *)malloc(20*sizeof(char));
   char * u_char_g=(char *)malloc(20*sizeof(char));
   /* Minimum mobility tolerance and file writting scale in terms of waiting time powers */
-  const double tol_Dl=dp.tol, t_save_scale= pow(10.0,0.1);
+  const double tol_Dl=dp.tol, t_save_scale= pow(10.0,0.25);
   int write_dyn = 0;
   /* Radial distribution function grid initialization */
-  int rnp = 1000;
-  double rmax = 10.0;
+  int rnp = 2000;
+  double rmax = 20.0;
   structure_grid gr = {NULL,NULL,NULL}; structure_grid_ini(&gr,rnp);
   for (i1=0; i1<rnp; i1++){ gr.k->data[i1] = rmax * ( (double) i1 / (double) rnp) ; gr.kw->data[i1] = 0.0;}
   if ( op.write_deleta == 1 || op.write_delz == 1 || op.write_F == 1 || op.write_taua == 1 || write_S == 1 ) { write_dyn = 1; }
@@ -220,7 +221,7 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   du      = 1E-7 * ds.Dl; /* Initial u differential with dt≈du/Dl; where Dl is the long time diffusion coefficient of the initial state */
   t       = 0.0;
   u       = 0.0;
-  t_save  = 1E-3;
+  t_save  = 1E-5;
   du_dt_1 = 0.0;
   i_save  = 0;
   if (write_dyn == 1) {fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, ds.Dl );}
@@ -234,10 +235,7 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
     t_pre=t;
     dt = du / ds.Dl;
     t += dt;
-    /* Computing the change in du in terms of change in (du/dt)  */
-    if( Dl_pre / ds.Dl > 1.05) {du *= 0.05 / ( ( Dl_pre / ds.Dl ) - 1.0) ;}
-    else if( ds.Dl / Dl_pre > 1.05) {du *= 0.05 / ( ( ds.Dl / Dl_pre ) - 1.0);}
-    else if ( u + 2.0*du < ua && 2.0 * du < 0.05 * ua ) { du *= 2.0; }
+    
     /* Computing the decision to end the time loop */
     e_Dl = fabs(1.0 - ( ds.Dl / dsf.Dl )); /* Error between current Dl and final Dl */
     if ( e_Dl < tol_Dl || u >= ua || ds.Dl <=tol_Dl ){convergence=1;}
@@ -267,6 +265,10 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
         t_save *= t_save_scale;
         save_dyn_vars_free(&dyn_save);
       }
+    /* Computing the change in du in terms of change in (du/dt)  */
+    if( Dl_pre / ds.Dl > 1.05) {du *= 0.05 / ( ( Dl_pre / ds.Dl ) - 1.0) ;}
+    else if( ds.Dl / Dl_pre > 1.05) {du *= 0.05 / ( ( ds.Dl / Dl_pre ) - 1.0);}
+    else if ( u + 2.0*du < ua && 2.0 * du < 0.05 * ua ) { du *= 2.0; }
     }
   }
   fprintf(t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, dsf.Dl, ua, 0.0 );
