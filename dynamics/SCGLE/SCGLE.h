@@ -14,95 +14,113 @@ system folder. For the imported impl */
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include "../../structures/structures.h"
+#include "../../math/math_aux.h"
 
-typedef struct dyn_params{
+/* Data structure for the parameters 
+needed for the computation of the dynamics */
+
+typedef struct dynamics_parameters{
 	int st;
 	const int it;
 	double dtau;
 	double kc;
 	const double D0;
 	const double tol;
-}dyn_params;
+	const int minimum_decimations_number;
+	const int maximum_decimations_number;
+} dynamics_parameters;
 
-typedef struct it_vars{
+/* Data structure for the computation of the 
+medium times dynamics */
+typedef struct intermediate_times_variables{
+	/* Internal computation vectors */
 	gsl_vector * tau;
-	gsl_vector * delz;
-	gsl_vector * msd;
-	gsl_vector * Dt;
-	gsl_vector * dele;
-	gsl_vector * tau_alpha;
-	gsl_vector * lamk;
+	gsl_vector * delta_z;
+	gsl_vector * lambda_k;
+	/* Internal computation matrixes */
 	gsl_matrix * Fc;
 	gsl_matrix * Fs;
-	gsl_vector * lamk_w;
-	gsl_matrix * Fc_w;
-	gsl_matrix * Fs_w;
-} it_vars;
+} intermediate_times_variables;
 
-typedef struct save_dyn_vars{
-	gsl_vector * tau;
-	gsl_vector * delz;
-	gsl_vector * dele;
-	gsl_matrix * Fc;
-	gsl_matrix * Fs;
+typedef struct dynamics_save_variables{
+	/* Input Vectors */
 	gsl_vector * k;
 	gsl_vector * S;
+	/* Internal computation vectors */
+	gsl_vector * lambda_k;
+	/* Output Vectors */
+	gsl_vector * tau;
+	gsl_vector * delta_zeta_t;
+	gsl_vector * delta_eta_t;
+	gsl_vector * msd;
+	gsl_vector * Dt;
+	gsl_vector * tau_alpha;
+	/* Output Matrixes */
+	gsl_matrix * Fc;
+	gsl_matrix * Fs;
+	/* Output Files */
 	FILE * F_dyn;
 	FILE * F_taua;
 	FILE * F_Fc;
 	FILE * F_Fs;
-}save_dyn_vars;
-
-typedef struct save_dyn_op{
-	int save_delz;
-	int save_deleta;
-	int save_F;
-	int save_gamma;
-	int save_Dl;
-	int write_delz;
-	int write_taua;
-	int write_deleta;
-	int write_F;
-}save_dyn_op;
-
-typedef struct dyn_scalar{
+	/* Output Scalars */
 	double Dl;
 	double eta;
 	double gamma;
 	double Delz_inf;
-}dyn_scalar;
+} dynamics_save_variables;
 
-void save_dyn_vars_free( save_dyn_vars * sdv );
+typedef struct dynamics_save_options{
+	/* if int = 1 -> save/write option activated */
+	int delta_zeta;
+	int delta_eta;
+	int msd;
+	int Dt;
+	int Fc;
+	int Fs;
+	int gamma;
+	int Dl;
+	int tau_alpha;
+} dynamics_save_options;
 
-double lambda_sph_mono( double k, double kc );
+void free_dynamics_save_variables( dynamics_save_variables * dsv );
 
-void lambda_sph_mono_gsl_v (gsl_vector ** lamk, const gsl_vector * k, const double kc );
+void close_dynamics_save_variables( dynamics_save_options dso, dynamics_save_variables * dsv);
 
-dyn_params dyn_params_ini(int st, int it, double dtau, double kc, double D0 );
+void free_close_dynamics_save_variables( dynamics_save_options dso, dynamics_save_variables *dsv );
 
-dyn_params dyn_params_ini_std();
+double lambda_spherical_mono( double k, double kc );
 
-dyn_params dyn_params_ini_HD();
+void gsl_vector_lambda_spherical_mono (gsl_vector ** lamk, const gsl_vector * k, const double kc );
 
-save_dyn_op save_dyn_op_ini();
+dynamics_parameters dynamics_parameters_manual_ini(int st, int it, double dtau, double kc, double D0, int mindn,int maxdn );
 
-save_dyn_op no_save_dyn_op_ini();
+dynamics_parameters dynamics_parameters_auto_ini();
 
-void save_dyn_vars_ini( save_dyn_vars * sdv, const save_dyn_op so, const int knp, const char * folder, const char * prefix, const char * suffix );
+dynamics_parameters dynamics_parameters_auto_HD_ini();
 
-dyn_scalar dyn_scalar_ini();
+dynamics_save_options dynamics_save_options_auto_ini();
 
-double gamma_sph_mono(structure_grid Sg, gsl_vector * lamk, liquid_params lp);
+dynamics_save_options dynamics_save_options_no_save_ini();
 
-void dynamics_sph_mono( liquid_params lp, dyn_params dp, structure_grid Sg,
-	save_dyn_vars * dyn, save_dyn_op op, dyn_scalar * ds );
+int dynamics_save_options_sum_tau( dynamics_save_options dso );
+int dynamics_save_options_sum_tau_only( dynamics_save_options dso );
+int dynamics_save_options_sum_k( dynamics_save_options dso );
+
+void dynamics_save_variables_spherical_mono_ini( dynamics_save_variables * dsv, const dynamics_save_options dso, gsl_vector * k, gsl_vector * Sk, const int knp, const dynamics_parameters dp, const char * folder, const char * prefix, const char * suffix );
+
+double gamma_spherical_mono(structure_grid Sg, gsl_vector * lamk, liquid_params lp);
+
+void dynamics_spherical_mono( liquid_params lp, dynamics_parameters dp, structure_grid Sg,
+	dynamics_save_variables * dsv, dynamics_save_options dso);
 
 liquid_params arrest_lp_in_limits(char * sys, char * approx, liquid_params lp0, liquid_params lp1, structure_grid Sg, gsl_vector * lamk, double tol);
 
-void gsl_vector_fc_non_ergo_param_mono_sph(gsl_vector ** fc, structure_grid Sg, gsl_vector * lamk, double gamma);
+void gsl_vector_fc_non_ergodicity_parameter_spherical_mono(gsl_vector ** fc, structure_grid Sg, gsl_vector * lamk, double gamma);
 
-void gsl_vector_fs_non_ergo_param_mono_sph(gsl_vector ** fs, structure_grid Sg, gsl_vector * lamk, double gamma);
+void gsl_vector_fs_non_ergodicity_parameter_spherical_mono(gsl_vector ** fs, structure_grid Sg, gsl_vector * lamk, double gamma);
 
+void dynamics_mono_spherical_standard_defined_structures( liquid_params lp, char * sys, char * approx, char * folder );
 
 
 #endif /* HARD_SPHERE_DOT_H */

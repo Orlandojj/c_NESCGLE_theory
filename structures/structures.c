@@ -284,18 +284,21 @@ radial_distribution_3D(double r, double rho, const structure_grid Sg){
 	int size=Sg.k->size;
 	double k; double kw; double S; double Lorch; double delta;
 	double g;
-	gsl_vector * integrand=gsl_vector_alloc(size);
-	delta=M_PI / Sg.k->data[size-1];
-	for (i1=0; i1< Sg.k->size; ++i1){
-		k=Sg.k->data[i1];
-		kw=Sg.kw->data[i1];
-		S=Sg.S->data[i1];
-		Lorch =  sin(delta*k); /* Correction function for truncated FT which is also divided by k, eliminated in the integrand */
-		integrand->data[i1] =  ( S - 1.0 ) * sin( k * r ) * kw * Lorch ;
+	if (r>1.0) {
+		gsl_vector * integrand=gsl_vector_alloc(size);
+		delta=M_PI / Sg.k->data[size-1];
+		for (i1=0; i1< Sg.k->size; ++i1){
+			k=Sg.k->data[i1];
+			kw=Sg.kw->data[i1];
+			S=Sg.S->data[i1];
+			Lorch =  sin(delta*k); /* Correction function for truncated FT which is also divided by k, eliminated in the integrand */
+			integrand->data[i1] =  ( S - 1.0 ) * sin( k * r ) * kw * Lorch ;
+		}
+		g = 1.0 + ( gsl_vector_sum(integrand) / ( 2.0 * M_PI * M_PI * rho * r * delta ) );	
+		gsl_vector_free(integrand);
 	}
-	g = 1.0 + ( gsl_vector_sum(integrand) / ( 2.0 * M_PI * M_PI * rho * r * delta ) );
+	else{g=0.0;}
 	
-	gsl_vector_free(integrand);
 	return g;
 }
 

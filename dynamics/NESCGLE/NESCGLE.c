@@ -1,8 +1,8 @@
 #include "NESCGLE.h"
 
-inst_change_vars
-inst_change_vars_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
-  inst_change_vars icv;
+instant_change_variables
+instant_change_variables_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
+  instant_change_variables icv;
   int i1;
   icv.k=gsl_vector_alloc(knp);
   icv.kw=gsl_vector_alloc(knp);
@@ -24,14 +24,14 @@ inst_change_vars_ini(int knp, int knwr,  liquid_params lpi, liquid_params lpf){
   return icv;
 }
 
-void inst_change_vars_free(inst_change_vars * icv){
-  gsl_vector_free(icv->k);
-  gsl_vector_free(icv->kw);
-  gsl_vector_free(icv->Si);
-  gsl_vector_free(icv->Sf);
-  if ( icv->kwr != NULL ) {gsl_vector_free(icv->kwr);}
-  if ( icv->Swri != NULL ) {gsl_vector_free(icv->Swri);}
-  if ( icv->Swrf != NULL ) {gsl_vector_free(icv->Swrf);}
+void instant_change_variables_free( instant_change_variables * icv ){
+  if ( icv->k    != NULL ) { gsl_vector_free(icv->k);    }
+  if ( icv->kw   != NULL ) { gsl_vector_free(icv->kw);   }
+  if ( icv->Si   != NULL ) { gsl_vector_free(icv->Si);   }
+  if ( icv->Sf   != NULL ) { gsl_vector_free(icv->Sf);   }
+  if ( icv->kwr  != NULL ) { gsl_vector_free(icv->kwr);  }
+  if ( icv->Swri != NULL ) { gsl_vector_free(icv->Swri); }
+  if ( icv->Swrf != NULL ) { gsl_vector_free(icv->Swrf); }
   liquid_params_free(&icv->lpi); 
   liquid_params_free(&icv->lpf);
 }
@@ -68,9 +68,7 @@ assert_positive_Sk(gsl_vector * Sk){
    return assertion;
 }
 
-void
-inst_change_gamma_ua_sph_mono(inst_change_vars icv,
-gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
+void inst_change_gamma_ua_sph_mono(instant_change_variables icv, gsl_vector * lamk, dynamics_parameters dp, double * gamma_ua, double * ua )
 {
   double gamma_i, gamma_f,gamma_t;
   int assert_v,convergence;
@@ -85,7 +83,7 @@ gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
   gsl_vector_memcpy(Sg.S,icv.Si);
   assert_v=assert_positive_Sk(Sg.S);
   if(assert_v==1){
-    gamma_i = gamma_sph_mono( Sg, lamk, icv.lpi);
+    gamma_i = gamma_spherical_mono( Sg, lamk, icv.lpi);
     if (gamma_i<1E40){
       printf("Warning, initiating from an arrested state, returning u value to liquid if posible \n");}
   }
@@ -103,7 +101,7 @@ gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
   convergence=0;
   while(convergence==0){
     sku_inst_change_mono_sph(&Sg.S,icv.Si, icv.Sf, aux_a, u_max);
-    gamma_f = gamma_sph_mono( Sg, lamk, icv.lpf);
+    gamma_f = gamma_spherical_mono( Sg, lamk, icv.lpf);
     if ( gamma_f < 1E40 ){convergence = 1;}
     else if (u_max < 1E40){ u_min=u_max; u_max *= 2.0;}
     else {ua[0]=1E40;gamma_ua[0]=gamma_f;
@@ -113,7 +111,7 @@ gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
   while(convergence==0){
     u_test = ( u_max + u_min ) * 0.5;
     sku_inst_change_mono_sph(&Sg.S, icv.Si, icv.Sf, aux_a, u_test);
-    gamma_t = gamma_sph_mono( Sg, lamk, icv.lpf);
+    gamma_t = gamma_spherical_mono( Sg, lamk, icv.lpf);
     if ( gamma_t < 1E40 ){ u_max = u_test;  gamma_f = gamma_t; }
     else { u_min = u_test; gamma_i = gamma_t; }
     error = (u_max-u_min) / u_max;
@@ -123,22 +121,23 @@ gsl_vector * lamk, dyn_params dp, double * gamma_ua, double * ua )
   structure_grid_free(&Sg); gsl_vector_free(aux_a); return;
 }
 
-void
-inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_params dp, save_dyn_op op, int write_S ) {
+void instant_change_dynamics_spherical_mono( instant_change_variables icv, char * folder, char * fname, dynamics_parameters dp, dynamics_save_options op, int write_S ) {
   int knp=icv.k->size;
   int knpwr=icv.Swri->size;
-  structure_grid Sg = {NULL,NULL,NULL}; structure_grid_ini(&Sg,knp);  
-  gsl_vector_memcpy(Sg.k,icv.k); gsl_vector_memcpy(Sg.kw,icv.kw);
- 
-  dyn_scalar ds = dyn_scalar_ini();
-  dyn_scalar dsf = dyn_scalar_ini();
-  dyn_scalar ds_save = dyn_scalar_ini();
+  const double Dl_ratio_smoothness = 1.05; /* Value greater than 1, recommended lower than 1.10 */
+  structure_grid Sg = {NULL,NULL,NULL}; 
+  structure_grid_ini(&Sg,knp);  
+  gsl_vector_memcpy(Sg.k,icv.k); 
+  gsl_vector_memcpy(Sg.kw,icv.kw);
+  structure_grid Sgw = {NULL, NULL, NULL};
+  structure_grid_ini(&Sgw,knpwr);
+  double Dl_initial, Dl_final, Dl_no_save;
   double u, t, ua, gamma_ua;
   gsl_vector * aux_a = gsl_vector_alloc(knp);aux_ic_sph_mono( &aux_a,icv.k, icv.Sf, dp.D0);
-  gsl_vector * lamk = gsl_vector_alloc(knp); lambda_sph_mono_gsl_v(&lamk, icv.k, dp.kc );
+  gsl_vector * lamk = gsl_vector_alloc(knp); gsl_vector_lambda_spherical_mono(&lamk, icv.k, dp.kc );
   gsl_vector * aux_a_w=gsl_vector_alloc(knpwr); aux_ic_sph_mono( &aux_a_w, icv.kwr, icv.Swrf, dp.D0);
-  save_dyn_vars dyn_save;
-  save_dyn_op no_save=no_save_dyn_op_ini();
+  dynamics_save_variables dyn_save;
+  dynamics_save_options no_save=dynamics_save_options_no_save_ini();
   int i1, convergence;
   double du_dt_1, du_dt_2, du, dt, t_pre, Dl_pre, t_save, u_save, du_save;
   double e_Dl;
@@ -153,7 +152,7 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   double rmax = 20.0;
   structure_grid gr = {NULL,NULL,NULL}; structure_grid_ini(&gr,rnp);
   for (i1=0; i1<rnp; i1++){ gr.k->data[i1] = rmax * ( (double) i1 / (double) rnp) ; gr.kw->data[i1] = 0.0;}
-  if ( op.write_deleta == 1 || op.write_delz == 1 || op.write_F == 1 || op.write_taua == 1 || write_S == 1 ) { write_dyn = 1; }
+  if ( dynamics_save_options_sum_tau_only(op) > 0 ) { write_dyn = 1; }
   /* Save format and variables for mobility files */
   printf("Opening files\n");
   char * t_file_name = (char *)malloc(400*sizeof(char));
@@ -183,7 +182,7 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   sprintf(u_char,"%s%03d%s","u_",0,"_");
   sprintf(u_char_S,"%s%03d%s","u_",0,"_S_");
   sprintf(u_char_g,"%s%03d%s","u_",0,"_g_");
-  save_dyn_vars_ini(&dyn_save, op, icv.kwr->size, folder, u_char, fname); 
+  dynamics_save_variables_spherical_mono_ini(&dyn_save, op,icv.kwr, icv.Swri, icv.k->size, dp, folder, u_char, fname); 
   gsl_vector_memcpy(dyn_save.k,icv.kwr);
   gsl_vector_memcpy(dyn_save.S,icv.Swri);
   if ( write_S == 1 ) {
@@ -191,57 +190,60 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
     gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
     s_grid_save_file( gr, folder, u_char_g, fname );
   }
-  dynamics_sph_mono( icv.lpi, dp, Sg, &dyn_save, op, &ds );
-  save_dyn_vars_free(&dyn_save);
+  dynamics_spherical_mono( icv.lpi, dp, Sg, &dyn_save, op);
+  Dl_initial = dyn_save.Dl;
+  free_dynamics_save_variables(&dyn_save);
   /* Computing final state dynamics */
   printf("computing final dynamics\n");
   sprintf(u_char,"%s%03d%s","u_",999,"_");
   sprintf(u_char_S,"%s%03d%s","u_",999,"_S_"); 
   sprintf(u_char_g,"%s%03d%s","u_",999,"_g_");
-  save_dyn_vars_ini(&dyn_save, op, icv.kwr->size, folder, u_char, fname);
+  dynamics_save_variables_spherical_mono_ini(&dyn_save, op, icv.kwr, icv.Swrf, icv.k->size, dp, folder, u_char, fname);
   gsl_vector_memcpy(dyn_save.k,icv.kwr);
   if ( ua < 1E40){
     sku_inst_change_mono_sph(&Sg.S,icv.Si, icv.Sf, aux_a, ua);
     sku_inst_change_mono_sph(&dyn_save.S, icv.Swri, icv.Swrf, aux_a_w, ua);
-    dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, op, &dsf );
+    dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
   }
   else{
     gsl_vector_memcpy(Sg.S,icv.Sf);
     gsl_vector_memcpy(dyn_save.S,icv.Swrf);
-    dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, op, &dsf );
+    dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
   }
   if ( write_S == 1 ) {
     s_grid_save_file( Sg, folder, u_char_S, fname ); 
     gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
     s_grid_save_file( gr, folder, u_char_g, fname );
     }
-  save_dyn_vars_free(&dyn_save);
+  Dl_final = dyn_save.Dl;
+  free_dynamics_save_variables(&dyn_save);
   /* Variables initialization for the waiting times loop */
   convergence = 0;
-  du      = 1E-7 * ds.Dl; /* Initial u differential with dt≈du/Dl; where Dl is the long time diffusion coefficient of the initial state */
+  du      = 1E-7 * Dl_initial; /* Initial u differential with dt≈du/Dl; where Dl is the long time diffusion coefficient of the initial state */
   t       = 0.0;
   u       = 0.0;
   t_save  = 1E-5;
   du_dt_1 = 0.0;
   i_save  = 0;
-  if (write_dyn == 1) {fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, ds.Dl );}
-  fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", 0.0, ds.Dl, 0.0, ua );
+  if (write_dyn == 1) {fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, Dl_initial );}
+  fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", 0.0, Dl_initial, 0.0, ua );
+  Dl_pre=Dl_initial;
   while ( convergence == 0 ){
     /* Computing the dynamics for the next u-value */
-    Dl_pre = ds.Dl;
     u+=du;
     sku_inst_change_mono_sph(&Sg.S, icv.Si, icv.Sf, aux_a, u);
-    dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, no_save, &ds );
+    dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, no_save );
+    Dl_no_save = dyn_save.Dl;
     t_pre=t;
-    dt = du / ds.Dl;
+    dt = du / Dl_no_save;
     t += dt;
     
     /* Computing the decision to end the time loop */
-    e_Dl = fabs(1.0 - ( ds.Dl / dsf.Dl )); /* Error between current Dl and final Dl */
-    if ( e_Dl < tol_Dl || u >= ua || ds.Dl <=tol_Dl ){convergence=1;}
-    if ( ds.Dl > tol_Dl ) {
+    e_Dl = fabs(1.0 - ( Dl_no_save / Dl_final )); /* Error between current Dl and final Dl */
+    if ( e_Dl < tol_Dl || u >= ua || Dl_no_save <= tol_Dl ){convergence=1;}
+    if ( Dl_no_save > tol_Dl ) {
       printf("%s %1.9e \t %s %1.9e \t %s %1.9e\n","Dl rel error w final value: ",e_Dl,"u: ", u,"t: ",t);
-      fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, ds.Dl, u, ua-u );
+      fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, Dl_no_save, u, ua-u );
       fflush(t_file);
       /* Computing the dynamics for the time-save value */
       
@@ -250,28 +252,30 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
         sprintf(u_char,"%s%03d%s","u_",i_save,"_");
         sprintf(u_char_S,"%s%03d%s","u_",i_save,"_S_");
         sprintf(u_char_g,"%s%03d%s","u_",i_save,"_g_"); 
-        save_dyn_vars_ini( &dyn_save, op, icv.kwr->size, folder, u_char, fname);
-        gsl_vector_memcpy(dyn_save.k,icv.kwr);
-        du_save = ( t_save - t_pre ) * 0.5 * ( ds.Dl + Dl_pre );
+        du_save = ( t_save - t_pre ) * 0.5 * ( Dl_no_save + Dl_pre );
         u_save  = u-du + du_save;
         sku_inst_change_mono_sph(&Sg.S, icv.Si, icv.Sf, aux_a, u_save);
-        sku_inst_change_mono_sph(&dyn_save.S, icv.Swri, icv.Swrf, aux_a_w, u_save);
+        sku_inst_change_mono_sph(&Sgw.S, icv.Swri, icv.Swrf, aux_a_w, u_save);
+        dynamics_save_variables_spherical_mono_ini( &dyn_save, op, Sgw.k, Sgw.S, Sg.k->size, dp, folder, u_char, fname);
+        gsl_vector_memcpy(dyn_save.k,icv.kwr);
         s_grid_save_file( Sg, folder, u_char_S, fname );
         gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
         s_grid_save_file( gr, folder, u_char_g, fname );
-        dynamics_sph_mono( icv.lpf, dp, Sg, &dyn_save, op, &ds_save );
-        fprintf(t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, t_save, u_save, ds_save.Dl );
+        dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
+        fprintf(t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, t_save, u_save, dyn_save.Dl );
         fflush(t_save_file);
         t_save *= t_save_scale;
-        save_dyn_vars_free(&dyn_save);
+        free_close_dynamics_save_variables(op, &dyn_save);
       }
     /* Computing the change in du in terms of change in (du/dt)  */
-    if( Dl_pre / ds.Dl > 1.05) {du *= 0.05 / ( ( Dl_pre / ds.Dl ) - 1.0) ;}
-    else if( ds.Dl / Dl_pre > 1.05) {du *= 0.05 / ( ( ds.Dl / Dl_pre ) - 1.0);}
+    if( Dl_pre / Dl_no_save > Dl_ratio_smoothness ) {du *= 0.05 / ( ( Dl_pre / Dl_no_save ) - 1.0) ;}
+    else if( Dl_no_save / Dl_pre > Dl_ratio_smoothness ) {du *= 0.05 / ( ( Dl_no_save / Dl_pre ) - 1.0);}
     else if ( u + 2.0*du < ua && 2.0 * du < 0.05 * ua ) { du *= 2.0; }
     }
+    Dl_pre = Dl_no_save;
+    
   }
-  fprintf(t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, dsf.Dl, ua, 0.0 );
+  fprintf(t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, Dl_final, ua, 0.0 );
   if (write_dyn == 1) {fclose(t_save_file);}
   fclose(t_file);
   gsl_vector_free(aux_a);
@@ -280,5 +284,44 @@ inst_change_mono_sph( inst_change_vars icv, char * folder, char * fname, dyn_par
   free(u_char_S);
   free(u_char_g);
   structure_grid_free(&Sg);
+  structure_grid_free(&Sgw);
   structure_grid_free(&gr);
+}
+
+void instant_change_dynamics_spherical_mono_standard_defined_structures( liquid_params initial_lp, liquid_params final_lp, char * initial_sys, char * final_sys, char * initial_approx, char * final_approx, char * folder ) {
+  /* Integration variables, structure grid definition and structure factor computation */
+  const double k0=0.0; const double k1=10.0; const double k2=40.96;
+	const int np  = pow(2,8);
+	const int nph = np / 2;
+	char * fun="sk";
+  /* Computing integration nodes and weights */
+	gsl_integration_fixed_workspace * w1, * w2;
+	const gsl_integration_fixed_type * int_T = gsl_integration_fixed_legendre;
+	w1 = gsl_integration_fixed_alloc(int_T, nph, k0, k1, 0.0, 0.0);
+	w2 = gsl_integration_fixed_alloc(int_T, nph, k1, k2, 0.0, 0.0);
+  /* Initializing and computing the instant change variables needed for the computation of instant change dynamics */
+  const int knwr = 5;
+	instant_change_variables icv = instant_change_variables_ini(np,knwr,initial_lp,final_lp);
+  gsl_vectors_composed_integration_space(w1,w2, &icv.k, &icv.kw);
+	gsl_integration_fixed_free(w1); 
+  gsl_integration_fixed_free(w2);
+	gsl_vector_s_function_selector_mono_sph(icv.Si, initial_sys, initial_approx, fun, icv.k, initial_lp);
+  gsl_vector_s_function_selector_mono_sph(icv.Sf, final_sys, final_approx, fun, icv.k, final_lp);
+  icv.kwr->data[0] = 2.0;
+  icv.kwr->data[1] = 4.0;
+  icv.kwr->data[2] = 5.0;
+  icv.kwr->data[3] = 2.0 * M_PI;
+  icv.kwr->data[4] = 7.18;
+  gsl_vector_s_function_selector_mono_sph(icv.Swri, initial_sys, initial_approx, fun, icv.kwr, initial_lp);
+  gsl_vector_s_function_selector_mono_sph(icv.Swrf, final_sys, final_approx, fun, icv.kwr, final_lp);
+  /* Setting the name structure for save files */
+  char * fname = (char *)malloc(400*sizeof(char));
+	s_name_constructor( final_sys, final_approx, "dat", 1, final_lp, &fname );
+  /* Setting dynamics parameters and dynamics save options */
+  dynamics_parameters dp = dynamics_parameters_auto_ini();
+  dynamics_save_options dso = dynamics_save_options_auto_ini();
+	/* Initializing dynamics parameters and dynamics save options */
+  instant_change_dynamics_spherical_mono( icv, folder, fname, dp, dso, 1 );
+  instant_change_variables_free( &icv );
+  return;
 }
