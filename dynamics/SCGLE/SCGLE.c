@@ -9,12 +9,12 @@ dynamics_parameters dynamics_parameters_manual_ini(int st, int it, double dtau, 
 }
 
 dynamics_parameters dynamics_parameters_auto_ini(){
-	dynamics_parameters dp={10,128,1e-7,2.0*M_PI*1.305,1.0,1E-6,20,60};
+	dynamics_parameters dp={10,128,1e-7,2.0*M_PI*1.305,1.0,1E-7,20,60};
 	return dp;
 }
 
 dynamics_parameters dynamics_parameters_auto_ini_HD(){
-	dynamics_parameters dp={10,512,1e-7,4.0*M_PI,1.0,1E-6,20,60};
+	dynamics_parameters dp={10,512,1e-7,4.0*M_PI,1.0,1E-7,20,60};
 	return dp;
 }
 
@@ -26,7 +26,7 @@ dynamics_save_options dynamics_save_options_auto_ini(){
 	dso.Dt = 1;
 	dso.delta_zeta=1;
 	dso.tau_alpha=1;
-	dso.delta_eta=0;
+	dso.delta_eta=1;
 	dso.Fc=1;
 	dso.Fs=1;
 	return dso;
@@ -135,8 +135,7 @@ void dynamics_save_variables_spherical_mono_ini( dynamics_save_variables * dsv, 
 	lambda(k,kc)
 	"k" -> wave vector magnitude
 	"kc" ->  Adjustable parameter, found that for HS systems kc ≈ 2 π * 1.305*/
-double
-lambda_spherical_mono( const double k, const double kc ) {
+double lambda_spherical_mono( const double k, const double kc ) {
 		double l;
 		l = k / kc;
 		l = l * l;
@@ -155,8 +154,7 @@ void gsl_vector_lambda_spherical_mono (gsl_vector ** lamk, const gsl_vector * k,
 	return;
 }
 
-intermediate_times_variables 
-intermediate_times_variables_spherical_mono_ini( const dynamics_parameters dp, const structure_grid Sg){
+intermediate_times_variables intermediate_times_variables_spherical_mono_ini( const dynamics_parameters dp, const structure_grid Sg){
 	int knp = Sg.k->size;
 	int nt=dp.it;
 	gsl_vector * tau = gsl_vector_alloc(nt);
@@ -171,7 +169,6 @@ intermediate_times_variables_spherical_mono_ini( const dynamics_parameters dp, c
 	intermediate_times_variables itv = { tau, idelz, lamk, iFc, iFs };
 	return itv;
 }
-
 
 
 
@@ -203,8 +200,7 @@ void free_close_dynamics_save_variables( dynamics_save_options dso, dynamics_sav
 	return;
 }
 
-void
-free_intermediate_times_variables(intermediate_times_variables * itv){
+void free_intermediate_times_variables(intermediate_times_variables * itv){
 	if(itv->tau != NULL) 		{ gsl_vector_free (itv->tau); }
 	if(itv->delta_z != NULL) 		{ gsl_vector_free (itv->delta_z); }
 	if(itv->lambda_k !=NULL) 		{ gsl_vector_free (itv->lambda_k); }
@@ -279,6 +275,78 @@ double delta_zeta_spherical_mono_test_for_k_points( const liquid_params lp, cons
 	return z;
 }
 
+/*
+Function that computes the viscosity for a spherical monocomponent system
+
+Δη(t) = (k_BT/60π²)∫dk(0, ∞) (k/S(k;t))⁴ (dS(k;t)/dk)² F²(k,τ;t)
+
+the discretization becomes
+
+Δη(t) = (k_BT/60π²)Σ(0,n) kw (k/S(k;t))⁴ (dS(k;t)/dk)² F²(k,τ;t)
+
+for a simple approx for the derivative dS/dk ≈ ΔS/Δk
+
+Δη(t) = (k_BT/60π²)Σ(0,n) (k/S(k;t))⁴ (ΔS(k;t)*F(k,τ;t))²/Δk
+
+*/
+
+double delta_eta_spherical_mono( const liquid_params lp, const structure_grid Sg, const gsl_vector * Fc ){
+	int knp = (Sg.k)->size;
+ 	gsl_vector * integrand = gsl_vector_alloc(knp);
+ 	double dk, dS, k, Sk, Fk;
+ 	int i1;
+ 	double eta;
+ 	// simple approximation for the derivative
+ 	/*for (i1=0; i1<knp; i1++){
+ 		// dk
+		if(i1>0) dk = Sg.k->data[i1]- Sg.k->data[i1-1];
+		else dk = Sg.k->data[0];
+		// dS
+		dS = Sg.S->data[i1] - Sg.S->data[i1-1];
+		// k, S(k) and F(k,τ)
+		k = Sg.k->data[i1];
+		Sk = Sg.S->data[i1];
+		Fk = Fc->data[i1];
+		if (Fk<1.0E-150) {Fk=0.0;}
+		integrand->data[i1] = pow(k/Sk, 4) * pow(dS*Fk, 2) / dk;
+ 	}*/
+ 	// approxiating the local derivative as a function of three points
+ 	double dS_dk, f0, f1, f2, x0, x1, x2;
+ 	integrand->data[0] = 0.0;//pow((Sg.k->data[0])/(Sg.S->data[0]), 4) 
+						//* pow((Sg.k->data[1]- Sg.k->data[0]) * Fc->data[i1], 2) / Sg.k->data[0] ;
+ 	for (i1=1; i1<knp-1; i1++){
+ 		// dk
+		dk = Sg.k->data[0];
+		// derivative dS/dk for three points (x_0, f(x, 0)), (x_1, f(x, 1)) and (x_2, f(x, 2))
+		// f'(xj) = f(x0) * (2xj - x1 - x2)/((x0 - x1)*(x0 - x2))
+		//			 +	f(x1) * (2xj - x0 - x2)/((x1 - x0)*(x1 - x2))
+		//			 +	f(x2) * (2xj - x0 - x1)/((x2 - x0)*(x2 - x1))
+		// for xj = x1
+		// f'(x1) = f(x0) * (x1 - x2)/((x0 - x1)*(x0 - x2))
+		//			 +	f(x1) * (2x1 - x0 - x2)/((x1 - x0)*(x1 - x2))
+		//			 +	f(x2) * (x1 - x0)/((x2 - x0)*(x2 - x1))
+		f0 = Sg.S->data[i1-1]; f1 = Sg.S->data[i1]; f2 = Sg.S->data[i1+1];
+		x0 = Sg.k->data[i1-1]; x1 = Sg.k->data[i1]; x2 = Sg.k->data[i1+1];
+		dS_dk = f0 * (x1 - x2)/((x0 - x1)*(x0 - x2))
+				+ f1 * (2*x1 - x0 - x2)/((x1 - x0)*(x1 - x2))
+				+ f2 * (x1 - x0)/((x2 - x0)*(x2 - x1));
+		// k, S(k) and F(k,τ)
+		k = Sg.k->data[i1];
+		Sk = Sg.S->data[i1];
+		Fk = Fc->data[i1];
+		if (Fk<1.0E-150) {Fk=0.0;}
+		// Δη(t) = (k_BT/60π²)Σ(0,n) dk (k/S(k;t))⁴ (dS(k;t)/dk)² F²(k,τ;t)
+		integrand->data[i1] = pow(k/Sk, 4) * pow(dS_dk*Fk, 2) * Sg.kw->data[i1];
+ 	}
+ 	integrand->data[knp-1] = 0.0;
+
+	eta = 60.0 * M_PI * M_PI;
+ 	eta = gsl_vector_sum(integrand) / eta;
+	/* Deallocation of vectors memory */
+	gsl_vector_free(integrand);
+	return eta;
+}
+
 /* Auxiliary function that computes the integral ∫₀ᵗ Δζ(t')dt' */
 double
 int_Delz( const gsl_vector * Delz, const double prev_val, const double dtau, const int ini, const int end ){
@@ -292,8 +360,7 @@ int_Delz( const gsl_vector * Delz, const double prev_val, const double dtau, con
 	return integral;
 }
 
-double
-Dl_sph_mono( double int_delz ){
+double Dl_sph_mono( double int_delz ){
 	double Dl;
 	Dl = 1.0 + int_delz;
 	Dl = 1.0 / Dl;
@@ -317,8 +384,7 @@ double Dt(int it, dynamics_parameters dp, gsl_vector * delta_z, gsl_vector * Dt 
 }
 /* Function that computes for the mean-squared displacement
 for the it- time through the convolution w(t)= t - ∫₀ᵗ	[ d ( w(t-t') ) / dt ] [ Δζ(t')dt' ]  */
-double
-msdt(int it, dynamics_parameters dp, gsl_vector * delz, gsl_vector * msd){
+double msdt(int it, dynamics_parameters dp, gsl_vector * delz, gsl_vector * msd){
 	int i1;
 	double h=dp.dtau;
 	double Dmsd, sum, dum1;
@@ -339,8 +405,7 @@ msdt(int it, dynamics_parameters dp, gsl_vector * delz, gsl_vector * msd){
 	"k" -> wave vector magnitude
 	"t" -> correlation time value
 	"s" -> static structure factor value */
-double
-ini_Fc_sph_mono( double k, double t, double S, double D0 ){
+double ini_Fc_sph_mono( double k, double t, double S, double D0 ){
 	double f;
 	f =  exp (- D0 * t * k * k / S) * S;
 	return f;
@@ -350,15 +415,13 @@ ini_Fc_sph_mono( double k, double t, double S, double D0 ){
 	Fs(k,t)
 	"k" -> wave vector magnitude
 	"t" -> correlation time value */
-double
-ini_Fs_sph_mono( double k, double t, double D0 ){
+double ini_Fs_sph_mono( double k, double t, double D0 ){
 	double f;
 	f = exp (- D0 * t * k * k ) ;
 	return f;
 }
 
-double
-tau_alpha_sph_mono( double Fs_pre, double tau_pre, double Fs, double tau, double D0, double taua_pre ){
+double tau_alpha_sph_mono( double Fs_pre, double tau_pre, double Fs, double tau, double D0, double taua_pre ){
 	double taua;
 	double m,c;
 	const double F_taua = exp( - D0 );
@@ -389,13 +452,12 @@ tau_alpha_sph_mono( double Fs_pre, double tau_pre, double Fs, double tau, double
 	itv_vars	*											itv				equally spaced time grid, you need to pass an address
 																						as this function pretends to modify such values
 */
-void
-short_times_dynamics_spherical_mono(liquid_params lp, structure_grid Sg, dynamics_parameters dp, dynamics_save_variables * dsv,
+void short_times_dynamics_spherical_mono(liquid_params lp, structure_grid Sg, dynamics_parameters dp, dynamics_save_variables * dsv,
 intermediate_times_variables * itv, dynamics_save_options dso ){
 	int knp = (Sg.k)->size;
 	int knp_w; if ( dso.Fc == 1 || dso.Fs == 1 ) { knp_w = dsv->k->size; }
 	int i1,i2;
-	double t,k_val,S_val,z;
+	double t,k_val,S_val,z,e;
 	gsl_vector_view Fc_v;
 	gsl_vector_view Fs_v;
 	double sumDelz,dum1;
@@ -430,6 +492,11 @@ intermediate_times_variables * itv, dynamics_save_options dso ){
 				}
 			}
 		}
+		/* Computation of Deta(t) */
+		if ( dso.delta_eta == 1 ){
+		e = delta_eta_spherical_mono( lp, Sg,&Fc_v.vector);
+		gsl_vector_set ( dsv->delta_eta_t, i2, e );
+		}
 		/* Computation of D(t) */
 		sumDelz = sumDelz + z;
 		dum1 = dp.D0 * ( 1.0 - dp.dtau * sumDelz );
@@ -449,8 +516,7 @@ intermediate_times_variables * itv, dynamics_save_options dso ){
 
 
 /* Function that computes for auxiliary vectors as and ac employed in medium_t_dynamics_sph_mono */
-void
-alphas( structure_grid Sg, dynamics_parameters dp, gsl_vector * lamk,
+void alphas( structure_grid Sg, dynamics_parameters dp, gsl_vector * lamk,
 double mem1, gsl_vector ** ac, gsl_vector ** as){
 	int knp = (Sg.k)->size;
 	int i1;
@@ -495,12 +561,11 @@ Variables:
 Notes:
 	- Currently only works for d=2 and d=3
 	*/
-void
-intermediate_times_dynamics_spherical_mono_for_writting(const liquid_params lp, dynamics_parameters dp, intermediate_times_variables * itv, dynamics_save_variables * dsv){
+void intermediate_times_dynamics_spherical_mono_for_writting(const liquid_params lp, dynamics_parameters dp, intermediate_times_variables * itv, dynamics_save_variables * dsv){
 		int knp = dsv->k->size;
 		int i1,i2,i3,i4;
 		double t,k_val,S_val,z;
-		double dum1,deldelz_val,delz_val;
+		double dum1,deldelz_val,delz_val,dele_val;
 		double delz_test;
 		structure_grid Sg_dummy = { dsv->k, NULL, dsv->S }; 
 		gsl_vector * ac   		= gsl_vector_alloc(knp);
@@ -613,15 +678,12 @@ Variables:
 Notes:
 	- Currently only works for d=2 and d=3
 	*/
-void
-intermediate_times_dynamics_spherical_mono( const liquid_params lp, const structure_grid Sg, dynamics_parameters dp,
-intermediate_times_variables* itv,
-dynamics_save_variables * dsv, dynamics_save_options dso ){
+void intermediate_times_dynamics_spherical_mono( const liquid_params lp, const structure_grid Sg, dynamics_parameters dp, intermediate_times_variables* itv, dynamics_save_variables * dsv, dynamics_save_options dso ){
 	const double tol=1e-10;
 	int knp = (Sg.k)->size;
 	int i1,i2,i3,i4;
 	double t,k_val,S_val,z,error;
-	double dum1,deldelz_val,delz_val,m,c;
+	double dum1,deldelz_val,delz_val,m,c,dele_val;
 	double delz_test;
 	gsl_vector * ac = gsl_vector_alloc(knp);
 	gsl_vector * as = gsl_vector_alloc(knp);
@@ -709,6 +771,10 @@ dynamics_save_variables * dsv, dynamics_save_options dso ){
 			gsl_matrix_set(itv->Fs,i1,i2, gsl_vector_get(Fsdum2,i2) );
 		}
 		deldelz->data[i1] = gsl_vector_get(itv->delta_z,i1) - gsl_vector_get(itv->delta_z,i1-1);
+		if (dso.delta_eta==1){
+				dele_val = delta_eta_spherical_mono( lp, Sg, Fcdum2 );
+				gsl_vector_set(dsv->delta_eta_t,i1,dele_val);
+		}
 	}
 	/* Saving for writting options once the intermediate times have been computed */
 	if ( dynamics_save_options_sum_tau_only(dso) > 0 ) {
@@ -716,10 +782,12 @@ dynamics_save_variables * dsv, dynamics_save_options dso ){
 		gsl_vector_memcpy(dsv->tau,itv->tau);
 		/* update Delta Zeta */
 		if ( dso.delta_zeta == 1 ) { gsl_vector_memcpy(dsv->delta_zeta_t,itv->delta_z); }
+		
 		/* update D(t) */
 		if ( dso.Dt == 1 ) { 
 			for(i1=dp.st; i1<dp.it; ++i1) { dsv->Dt->data[i1]  = Dt(i1, dp, itv->delta_z, dsv->Dt ); } 
 			}
+		
 		/* update w(t) */
 		if ( dso.msd == 1 ) { 
 			for(i1=dp.st; i1<dp.it; ++i1) { dsv->msd->data[i1] = msdt(i1, dp, itv->delta_z, dsv->msd); }
@@ -756,8 +824,7 @@ dynamics_save_variables * dsv, dynamics_save_options dso ){
 
 
 
-void
-save_half_intermediate_times_variables_spherical_mono( intermediate_times_variables * itv, dynamics_parameters * dp, dynamics_save_options dso, dynamics_save_variables * dsv ){
+void save_half_intermediate_times_variables_spherical_mono( intermediate_times_variables * itv, dynamics_parameters * dp, dynamics_save_options dso, dynamics_save_variables * dsv ){
 	int i1,i2,isave;
 	int nt =  dp->it;
 	const int nth = nt / 2;
@@ -841,8 +908,7 @@ Notes:
 	- If γ = 1E40 the value is expected to diverge
 	- If γ = 1E99 no convergence was found in 10,000 iteration steps
 	*/
-double 
-gamma_spherical_mono(structure_grid Sg, gsl_vector * lamk, liquid_params lp){
+double gamma_spherical_mono(structure_grid Sg, gsl_vector * lamk, liquid_params lp){
 	const double tol=1e-8;
 	const double gamma_max=1e40;
 	int knp = Sg.k->size;
@@ -978,8 +1044,7 @@ liquid_params arrest_lp_in_limits(char * sys, char * approx, liquid_params lp0, 
 	return lp_sup;
 }
 
-void
-intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_variables * dsv, int ini){
+void intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_variables * dsv, int ini){
 	int i1,i2;
 	if ( ini == 0 ) {
 		if ( dynamics_save_options_sum_tau_only( dso ) > 0 ) {
@@ -1054,8 +1119,7 @@ intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_v
 }
 
 
-void
-gsl_vector_fc_non_ergo_param_mono_sph(gsl_vector ** fc,structure_grid Sg, gsl_vector * lamk, double gamma){
+void gsl_vector_fc_non_ergo_param_mono_sph(gsl_vector ** fc,structure_grid Sg, gsl_vector * lamk, double gamma){
 	gsl_vector_memcpy(fc[0],Sg.S);
 	gsl_vector * dummy = gsl_vector_alloc(Sg.k->size);
 	gsl_vector_memcpy(dummy,Sg.k);
@@ -1069,8 +1133,7 @@ gsl_vector_fc_non_ergo_param_mono_sph(gsl_vector ** fc,structure_grid Sg, gsl_ve
 	return;
 }
 
-void
-gsl_vector_fs_non_ergo_param_mono_sph(gsl_vector ** fs, structure_grid Sg, gsl_vector * lamk, double gamma){
+void gsl_vector_fs_non_ergo_param_mono_sph(gsl_vector ** fs, structure_grid Sg, gsl_vector * lamk, double gamma){
 	gsl_vector_set_all(fs[0],1.0);
 	gsl_vector * dummy = gsl_vector_alloc(Sg.k->size);
 	gsl_vector_memcpy(dummy,Sg.k);
@@ -1083,8 +1146,7 @@ gsl_vector_fs_non_ergo_param_mono_sph(gsl_vector ** fs, structure_grid Sg, gsl_v
 	return;
 }
 
-void
-writting_taua(dynamics_save_options dso, dynamics_save_variables * dsv,
+void writting_taua(dynamics_save_options dso, dynamics_save_variables * dsv,
 structure_grid Sg){
 	int i1,i2;
 	if ( dso.tau_alpha == 1 ){
@@ -1114,8 +1176,7 @@ Notes:
 	- If γ = 1E40 the value is expected to diverge
 	- If γ = 1E99 no convergence was found in 10,000 iteration steps
 	*/
-void
-dynamics_spherical_mono( liquid_params lp, dynamics_parameters dp, structure_grid Sg, dynamics_save_variables * dsv, dynamics_save_options dso ){
+void dynamics_spherical_mono( liquid_params lp, dynamics_parameters dp, structure_grid Sg, dynamics_save_variables * dsv, dynamics_save_options dso ){
 	int nt = dp.it;
 	int knp = Sg.k->size;
 	/* Initialization of intermediate times variables for computing and writting */
