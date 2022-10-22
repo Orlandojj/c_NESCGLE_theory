@@ -164,10 +164,10 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   strcat(t_file_name,"t_save_"); 
   strcat(t_file_name, fname);
   FILE * t_save_file;
-  fprintf(t_file,"#|| 1 t || 2 b(t) || 3 u(t) || 4 uₐ-u(t) ||# \n" );
+  fprintf(t_file,"#1t,2b(t),3u(t),4uₐ-u(t)\n" );
   if (write_dyn == 1) {
     t_save_file=fopen(t_file_name,"w");
-    fprintf(t_save_file,"#|| 1 quench id || 2 t || 3 u(t) || 4 b(t) ||# \n" );
+    fprintf(t_save_file,"#1quench_id,2t,3u(t),4b(t)\n" );
   }
   free(t_file_name);
   int i_save=0;
@@ -225,8 +225,8 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   t_save  = 1E-5;
   du_dt_1 = 0.0;
   i_save  = 0;
-  if (write_dyn == 1) {fprintf( t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, 0.0, 0.0, Dl_initial );}
-  fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", 0.0, Dl_initial, 0.0, ua );
+  if (write_dyn == 1) {fprintf( t_save_file,"%d%s%1.9e%s%1.9e%s%1.9e \n", i_save,",", 0.0,",", 0.0,",", Dl_initial );}
+  fprintf( t_file,"%1.9e%s%1.9e%s%1.9e%s%1.9e \n", 0.0,",", Dl_initial, ",",0.0,",", ua );
   Dl_pre=Dl_initial;
   while ( convergence == 0 ){
     /* Computing the dynamics for the next u-value */
@@ -243,7 +243,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
     if ( e_Dl < tol_Dl || u >= ua || Dl_no_save <= tol_Dl ){convergence=1;}
     if ( Dl_no_save > tol_Dl ) {
       printf("%s %1.9e \t %s %1.9e \t %s %1.9e\n","Dl rel error w final value: ",e_Dl,"u: ", u,"t: ",t);
-      fprintf( t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, Dl_no_save, u, ua-u );
+      fprintf( t_file,"%1.9e%s%1.9e%s%1.9e%s%1.9e \n", t,",", Dl_no_save,",", u,",", ua-u );
       fflush(t_file);
       /* Computing the dynamics for the time-save value */
       
@@ -262,7 +262,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
         gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
         s_grid_save_file( gr, folder, u_char_g, fname );
         dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
-        fprintf(t_save_file,"%d \t %1.9e \t %1.9e \t %1.9e \n", i_save, t_save, u_save, dyn_save.Dl );
+        fprintf(t_save_file,"%d%s%1.9e%s%1.9e%s%1.9e \n", i_save,",", t_save,",", u_save,",", dyn_save.Dl );
         fflush(t_save_file);
         t_save *= t_save_scale;
         free_close_dynamics_save_variables(op, &dyn_save);
@@ -316,7 +316,7 @@ void instant_change_dynamics_spherical_mono_standard_defined_structures( liquid_
   gsl_vector_s_function_selector_mono_sph(icv.Swrf, final_sys, final_approx, fun, icv.kwr, final_lp);
   /* Setting the name structure for save files */
   char * fname = (char *)malloc(400*sizeof(char));
-	s_name_constructor( final_sys, final_approx, "dat", 1, final_lp, &fname );
+	s_name_constructor( final_sys, final_approx, "csv", 1, final_lp, &fname );
   /* Setting dynamics parameters and dynamics save options */
   dynamics_parameters dp = dynamics_parameters_auto_ini();
   dynamics_save_options dso = dynamics_save_options_auto_ini();

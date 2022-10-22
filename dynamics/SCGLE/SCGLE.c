@@ -1044,75 +1044,110 @@ liquid_params arrest_lp_in_limits(char * sys, char * approx, liquid_params lp0, 
 	return lp_sup;
 }
 
-void intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_variables * dsv, int ini){
+void
+intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_variables * dsv, int ini){
 	int i1,i2;
+	int sumdso_tau_only;
+	sumdso_tau_only=dynamics_save_options_sum_tau_only( dso );
 	if ( ini == 0 ) {
-		if ( dynamics_save_options_sum_tau_only( dso ) > 0 ) {
-			fprintf(dsv->F_dyn, "# || 1 τ ||" );
+		if ( sumdso_tau_only > 0 ) {
+			fprintf(dsv->F_dyn, "#1τ," );
 			i1=1;
 			if( dso.delta_zeta == 1 ) { 
 				i1+=1; 
-				fprintf(dsv->F_dyn, " %1.1d %s", i1, "Δζ(τ) ||" ); 
+				fprintf(dsv->F_dyn, " %1.1d%s", i1, "Δζ(τ)," ); 
 			}
 			if( dso.Dt == 1 ) { 
 				i1+=1; 
-				fprintf(dsv->F_dyn, " %1.1d %s", i1, "D(τ) ||" ); 
+				fprintf(dsv->F_dyn, " %1.1d%s", i1, "D(τ)," ); 
 			}
 			if( dso.msd == 1 ) { 
 				i1+=1; 
-				fprintf(dsv->F_dyn, " %1.1d %s", i1, "w(τ) ||" ); 
+				fprintf(dsv->F_dyn, " %1.1d %s", i1, "w(τ)," ); 
 			}
 			if( dso.delta_eta == 1 ) { 
 				i1+=1; 
-				fprintf(dsv->F_dyn, " %1.1d %s", i1, "Δη(τ) ||" ); 
+				fprintf(dsv->F_dyn, " %1.1d%s", i1, "Δη(τ)" ); 
 			}
 			fprintf(dsv->F_dyn, "# \n");
 		}
 
 		if ( dso.Fc == 1 ){
-			fprintf( dsv->F_Fc, "# || 1 τ || ");
-			for ( i1=0; i1 < dsv->k->size; ++i1 ){
-				fprintf( dsv->F_Fc, "%d %s %3.3f %s", i1 + 2 ,"k=", dsv->k->data[i1]," || " );
+			fprintf( dsv->F_Fc, "#1τ,");
+			for ( i1=0; i1 < dsv->k->size-1; ++i1 ){
+				fprintf( dsv->F_Fc, "%d%s%3.3f%s", i1 + 2 ,"k=", dsv->k->data[i1],"," );
 			}
-			fprintf(dsv->F_Fc,"# \n");
+			i1 = dsv->k->size-1;
+			fprintf( dsv->F_Fc, "%d%s%3.3f\n", i1 + 2 ,"k=", dsv->k->data[i1] );
 		}
 		if ( dso.Fs == 1 ){
-			fprintf(dsv->F_Fs, "# || 1 τ || ");
-			for ( i1=0; i1 < dsv->k->size; ++i1 ){
-				fprintf(dsv->F_Fs, "%d %s %3.3f %s", i1 + 2, "k=", dsv->k->data[i1], " || " );
+			fprintf(dsv->F_Fs, "1τ,");
+			for ( i1=0; i1 < dsv->k->size-1; ++i1 ){
+				fprintf(dsv->F_Fs, "%d%s%3.3f%s", i1 + 2, "k=", dsv->k->data[i1], "," );
 			}
-			fprintf(dsv->F_Fs,"# \n");
+			i1 = dsv->k->size-1;
+			fprintf( dsv->F_Fs, "%d%s%3.3f\n", i1 + 2 ,"k=", dsv->k->data[i1] );
 		}
 	}
 
-	if ( dynamics_save_options_sum_tau_only( dso ) > 0 ) {
+	if ( sumdso_tau_only > 0 ) {
+		
 		for ( i1 = ini; i1 < dsv->tau->size; ++i1 ) {  
-			fprintf(dsv->F_dyn,"%1.9e \t ", dsv->tau->data[i1] );
-			if ( dso.delta_zeta == 1 ) { fprintf(dsv->F_dyn,"%1.9e \t ", dsv->delta_zeta_t->data[i1] ); }
-			if ( dso.Dt == 1 ) { fprintf(dsv->F_dyn,"%1.9e \t ", dsv->Dt->data[i1] ); }
-			if ( dso.msd == 1 ) { fprintf(dsv->F_dyn,"%1.9e \t ", dsv->msd->data[i1] ); }
-			if ( dso.delta_eta == 1 ) { fprintf(dsv->F_dyn,"%1.9e \t ", dsv->delta_eta_t->data[i1] ); }
+			fprintf(dsv->F_dyn,"%1.9e%s", dsv->tau->data[i1],"," );
+			i2=0;
+			if ( dso.delta_zeta == 1 ) { 
+				fprintf(dsv->F_dyn,"%1.9e", dsv->delta_zeta_t->data[i1] );
+				i2+=1;
+				if ( sumdso_tau_only >= i2) {
+					fprintf(dsv->F_dyn,"%s",",");
+				}
+				}
+			if ( dso.Dt == 1 ) {
+				fprintf(dsv->F_dyn,"%1.9e", dsv->Dt->data[i1] ); 
+				i2+=1;
+				if ( sumdso_tau_only >= i2) {
+					fprintf(dsv->F_dyn,"%s",",");
+				}
+				}
+			if ( dso.msd == 1 ) {
+				i2+=1;
+				fprintf(dsv->F_dyn,"%1.9e", dsv->msd->data[i1] );
+				if ( sumdso_tau_only >= i2) {
+					fprintf(dsv->F_dyn,"%s",",");
+				}
+				}
+			if ( dso.delta_eta == 1 ) {
+				i2+=1;
+				fprintf(dsv->F_dyn,"%1.9e", dsv->delta_eta_t->data[i1] );
+				if ( sumdso_tau_only >= i2) {
+					fprintf(dsv->F_dyn,"%s",",");
+				}
+				}
 			fprintf(dsv->F_dyn," \n");
 		}
 	}
 
 	if ( dso.Fc == 1 ) {
 		for( i1=ini; i1 < dsv->Fc->size1; ++i1 ){
-			fprintf(dsv->F_Fc, "%1.9e \t", dsv->tau->data[i1] );
-			for( i2=0; i2 < dsv->Fc->size2; ++i2 ){
-				fprintf(dsv->F_Fc, "%1.9e\t",gsl_matrix_get(dsv->Fc,i1,i2) );
+			fprintf(dsv->F_Fc, "%1.9e%s", dsv->tau->data[i1],",");
+			for( i2=0; i2 < dsv->Fc->size2-1; ++i2 ){
+				fprintf(dsv->F_Fc, "%1.9e%s",gsl_matrix_get(dsv->Fc,i1,i2),",");
 			}
-		fprintf(dsv->F_Fc, "\n");
+			i2=dsv->Fc->size2-1;
+			fprintf(dsv->F_Fc, "%1.9e",gsl_matrix_get(dsv->Fc,i1,i2));
+			fprintf(dsv->F_Fc, "\n");
 		}
 
 	}
 	if ( dso.Fs == 1 ) {
 		for( i1=ini; i1 < dsv->Fs->size1; ++i1 ){
-			fprintf(dsv->F_Fs, "%1.9e \t", dsv->tau->data[i1] );
-			for( i2=0; i2 < dsv->Fs->size2; ++i2 ){
-				fprintf(dsv->F_Fs, "%1.9e\t",gsl_matrix_get(dsv->Fs, i1, i2) );
+			fprintf(dsv->F_Fs, "%1.9e%s", dsv->tau->data[i1],",");
+			for( i2=0; i2 < dsv->Fs->size2-1; ++i2 ){
+				fprintf(dsv->F_Fs, "%1.9e\t",gsl_matrix_get(dsv->Fs, i1, i2),",");
 			}
-		fprintf(dsv->F_Fs, "\n");
+			i2=dsv->Fs->size2-1;
+			fprintf(dsv->F_Fs, "%1.9e",gsl_matrix_get(dsv->Fs, i1, i2));
+			fprintf(dsv->F_Fs, "\n");
 		}
 	}
 	return;
@@ -1252,7 +1287,7 @@ void dynamics_mono_spherical_standard_defined_structures( liquid_params lp, char
 	/* Initializing variables needed for the dynamics */
 		/* File handling variables */
 	char * fname = (char *)malloc(400*sizeof(char));
-	s_name_constructor(sys,approx, "dat",1,lp, &fname );
+	s_name_constructor(sys,approx, "csv",1,lp, &fname );
 	s_grid_save_file( Sg, folder, "S_", fname );
 		/**/
 	printf("Initializing dynamics variables \n");

@@ -320,9 +320,9 @@ s_grid_save_file( const structure_grid sg, const char * folder, const char * pre
 	strcat(complete_file,prefix);
 	strcat(complete_file,suffix);
 	FILE * s_File = fopen(complete_file, "w");
-	fprintf(s_File, "# || 1 k || 2 f(k) || 3 kw || # \n" );
+	fprintf(s_File, "#1k,2f(k),3kw\n" );
 	for (i1=0; i1<sg.k->size; ++i1){ 
-		fprintf(s_File, "%1.9e \t %1.9e \t %1.9e \n", 
+		fprintf(s_File, "%1.9e,%1.9e,%1.9e\n", 
 		sg.k->data[i1], sg.S->data[i1], sg.kw->data[i1] );
 		}
 	fclose(s_File);
