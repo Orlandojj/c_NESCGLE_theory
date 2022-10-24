@@ -9,12 +9,12 @@ dynamics_parameters dynamics_parameters_manual_ini(int st, int it, double dtau, 
 }
 
 dynamics_parameters dynamics_parameters_auto_ini(){
-	dynamics_parameters dp={10,128,1e-7,2.0*M_PI*1.305,1.0,1E-7,20,60};
+	dynamics_parameters dp={10,128,1e-7,2.0*M_PI*1.305,1.0,1E-6,20,60};
 	return dp;
 }
 
 dynamics_parameters dynamics_parameters_auto_ini_HD(){
-	dynamics_parameters dp={10,512,1e-7,4.0*M_PI,1.0,1E-7,20,60};
+	dynamics_parameters dp={10,512,1e-7,4.0*M_PI,1.0,1E-6,20,60};
 	return dp;
 }
 
@@ -26,7 +26,7 @@ dynamics_save_options dynamics_save_options_auto_ini(){
 	dso.Dt = 1;
 	dso.delta_zeta=1;
 	dso.tau_alpha=1;
-	dso.delta_eta=1;
+	dso.delta_eta=0;
 	dso.Fc=1;
 	dso.Fs=1;
 	return dso;
@@ -135,7 +135,8 @@ void dynamics_save_variables_spherical_mono_ini( dynamics_save_variables * dsv, 
 	lambda(k,kc)
 	"k" -> wave vector magnitude
 	"kc" ->  Adjustable parameter, found that for HS systems kc ≈ 2 π * 1.305*/
-double lambda_spherical_mono( const double k, const double kc ) {
+double
+lambda_spherical_mono( const double k, const double kc ) {
 		double l;
 		l = k / kc;
 		l = l * l;
@@ -154,7 +155,8 @@ void gsl_vector_lambda_spherical_mono (gsl_vector ** lamk, const gsl_vector * k,
 	return;
 }
 
-intermediate_times_variables intermediate_times_variables_spherical_mono_ini( const dynamics_parameters dp, const structure_grid Sg){
+intermediate_times_variables 
+intermediate_times_variables_spherical_mono_ini( const dynamics_parameters dp, const structure_grid Sg){
 	int knp = Sg.k->size;
 	int nt=dp.it;
 	gsl_vector * tau = gsl_vector_alloc(nt);
@@ -173,6 +175,7 @@ intermediate_times_variables intermediate_times_variables_spherical_mono_ini( co
 
 
 
+
 void free_dynamics_save_variables( dynamics_save_variables * dsv )
 {
 	if( dsv->tau !=NULL ) { gsl_vector_free( dsv->tau ); }
@@ -181,9 +184,11 @@ void free_dynamics_save_variables( dynamics_save_variables * dsv )
 	if( dsv->Fc !=NULL ) { gsl_matrix_free( dsv->Fc ); }
 	if( dsv->Fs !=NULL ) { gsl_matrix_free( dsv->Fs ); }
 	if( dsv->k !=NULL ) { gsl_vector_free( dsv->k ); }
+	if( dsv->lambda_k !=NULL ) { gsl_vector_free( dsv->lambda_k ); }
 	if( dsv->S !=NULL ) { gsl_vector_free( dsv->S ); }
 	if( dsv->msd != NULL ) { gsl_vector_free( dsv->msd ) ;}
 	if( dsv->Dt != NULL ) { gsl_vector_free( dsv->Dt ); }
+	if( dsv->tau_alpha != NULL ) { gsl_vector_free( dsv->tau_alpha ); }
 }
 
 void close_dynamics_save_variables( dynamics_save_options dso, dynamics_save_variables * dsv ){
@@ -200,7 +205,8 @@ void free_close_dynamics_save_variables( dynamics_save_options dso, dynamics_sav
 	return;
 }
 
-void free_intermediate_times_variables(intermediate_times_variables * itv){
+void
+free_intermediate_times_variables(intermediate_times_variables * itv){
 	if(itv->tau != NULL) 		{ gsl_vector_free (itv->tau); }
 	if(itv->delta_z != NULL) 		{ gsl_vector_free (itv->delta_z); }
 	if(itv->lambda_k !=NULL) 		{ gsl_vector_free (itv->lambda_k); }
@@ -620,7 +626,7 @@ void intermediate_times_dynamics_spherical_mono_for_writting(const liquid_params
 			}
 			Fc_v = gsl_matrix_row( dsv->Fc, i1-1 ); 
 			Fs_v = gsl_matrix_row( dsv->Fs, i1-1 );
-			delz_val = itv->delta_z->data[i1-1];
+			delz_val = itv->delta_z->data[i1];
 			for(i3=0; i3<knp; ++i3){
 				Fc_val = gsl_vector_get(&Fc1.vector,i3); /* F(0) */
 				dum_val1 = ( Fcdum->data[i3] + ( Fc_val * delz_val ) ) * dsv->lambda_k->data[i3];
@@ -950,7 +956,7 @@ double gamma_spherical_mono(structure_grid Sg, gsl_vector * lamk, liquid_params 
 			dum_val1 = gamma * k2->data[i1] ;
 			dum_val1 = ( lams->data[i1] + dum_val1 ) * ( lamk->data[i1] + dum_val1 );
 			/* Computing the integral ∫ [S(k)-1]λ(k) kᵈ⁺¹ / {[λ(k)S(k) + γk²] [ λ(k) + γk² ]} dk */
-			integral_val = integral_val + ( dum1->data[i1] / dum_val1 );
+			integral_val 	= integral_val + ( dum1->data[i1] / dum_val1 );
 		}
 		/* setting gamma_test to the computed gamma */
 		gamma_test = dimen_dum / integral_val;
@@ -1095,6 +1101,7 @@ intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_v
 		for ( i1 = ini; i1 < dsv->tau->size; ++i1 ) {  
 			fprintf(dsv->F_dyn,"%1.9e%s", dsv->tau->data[i1],"," );
 			i2=0;
+			
 			if ( dso.delta_zeta == 1 ) { 
 				fprintf(dsv->F_dyn,"%1.9e", dsv->delta_zeta_t->data[i1] );
 				i2+=1;
@@ -1143,7 +1150,7 @@ intermediate_times_variables_writting(dynamics_save_options dso, dynamics_save_v
 		for( i1=ini; i1 < dsv->Fs->size1; ++i1 ){
 			fprintf(dsv->F_Fs, "%1.9e%s", dsv->tau->data[i1],",");
 			for( i2=0; i2 < dsv->Fs->size2-1; ++i2 ){
-				fprintf(dsv->F_Fs, "%1.9e\t",gsl_matrix_get(dsv->Fs, i1, i2),",");
+				fprintf(dsv->F_Fs, "%1.9e%s",gsl_matrix_get(dsv->Fs, i1, i2),",");
 			}
 			i2=dsv->Fs->size2-1;
 			fprintf(dsv->F_Fs, "%1.9e",gsl_matrix_get(dsv->Fs, i1, i2));

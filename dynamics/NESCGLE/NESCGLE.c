@@ -134,7 +134,8 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   double Dl_initial, Dl_final, Dl_no_save;
   double u, t, ua, gamma_ua;
   gsl_vector * aux_a = gsl_vector_alloc(knp);aux_ic_sph_mono( &aux_a,icv.k, icv.Sf, dp.D0);
-  gsl_vector * lamk = gsl_vector_alloc(knp); gsl_vector_lambda_spherical_mono(&lamk, icv.k, dp.kc );
+  gsl_vector * lamk = gsl_vector_alloc(knp); 
+  gsl_vector_lambda_spherical_mono(&lamk, icv.k, dp.kc );
   gsl_vector * aux_a_w=gsl_vector_alloc(knpwr); aux_ic_sph_mono( &aux_a_w, icv.kwr, icv.Swrf, dp.D0);
   dynamics_save_variables dyn_save;
   dynamics_save_options no_save=dynamics_save_options_no_save_ini();
@@ -185,6 +186,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   dynamics_save_variables_spherical_mono_ini(&dyn_save, op,icv.kwr, icv.Swri, icv.k->size, dp, folder, u_char, fname); 
   gsl_vector_memcpy(dyn_save.k,icv.kwr);
   gsl_vector_memcpy(dyn_save.S,icv.Swri);
+  gsl_vector_lambda_spherical_mono(&dyn_save.lambda_k,dyn_save.k,dp.kc); 
   if ( write_S == 1 ) {
     s_grid_save_file( Sg, folder, u_char_S, fname ); 
     gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
@@ -192,7 +194,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   }
   dynamics_spherical_mono( icv.lpi, dp, Sg, &dyn_save, op);
   Dl_initial = dyn_save.Dl;
-  free_dynamics_save_variables(&dyn_save);
+  free_close_dynamics_save_variables(op,&dyn_save);
   /* Computing final state dynamics */
   printf("computing final dynamics\n");
   sprintf(u_char,"%s%03d%s","u_",999,"_");
@@ -203,11 +205,13 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
   if ( ua < 1E40){
     sku_inst_change_mono_sph(&Sg.S,icv.Si, icv.Sf, aux_a, ua);
     sku_inst_change_mono_sph(&dyn_save.S, icv.Swri, icv.Swrf, aux_a_w, ua);
+    gsl_vector_lambda_spherical_mono(&dyn_save.lambda_k,dyn_save.k,dp.kc); 
     dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
   }
   else{
     gsl_vector_memcpy(Sg.S,icv.Sf);
     gsl_vector_memcpy(dyn_save.S,icv.Swrf);
+    gsl_vector_lambda_spherical_mono(&dyn_save.lambda_k,dyn_save.k,dp.kc); 
     dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
   }
   if ( write_S == 1 ) {
@@ -216,7 +220,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
     s_grid_save_file( gr, folder, u_char_g, fname );
     }
   Dl_final = dyn_save.Dl;
-  free_dynamics_save_variables(&dyn_save);
+  free_close_dynamics_save_variables(op,&dyn_save);
   /* Variables initialization for the waiting times loop */
   convergence = 0;
   du      = 1E-7 * Dl_initial; /* Initial u differential with dt≈du/Dl; where Dl is the long time diffusion coefficient of the initial state */
@@ -261,6 +265,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
         s_grid_save_file( Sg, folder, u_char_S, fname );
         gsl_vector_radial_distribution_3D(gr.S, gr.k, icv.lpi.rho, Sg); 
         s_grid_save_file( gr, folder, u_char_g, fname );
+        gsl_vector_lambda_spherical_mono(&dyn_save.lambda_k,dyn_save.k,dp.kc); 
         dynamics_spherical_mono( icv.lpf, dp, Sg, &dyn_save, op );
         fprintf(t_save_file,"%d%s%1.9e%s%1.9e%s%1.9e \n", i_save,",", t_save,",", u_save,",", dyn_save.Dl );
         fflush(t_save_file);
@@ -275,7 +280,7 @@ void instant_change_dynamics_spherical_mono( instant_change_variables icv, char 
     Dl_pre = Dl_no_save;
     
   }
-  fprintf(t_file,"%1.9e \t %1.9e \t %1.9e \t %1.9e \n", t, Dl_final, ua, 0.0 );
+  fprintf(t_file,"%1.9e%s%1.9e%s%1.9e%s%1.9e \n", t,",", Dl_final,",", ua,",", 0.0 );
   if (write_dyn == 1) {fclose(t_save_file);}
   fclose(t_file);
   gsl_vector_free(aux_a);
@@ -323,5 +328,6 @@ void instant_change_dynamics_spherical_mono_standard_defined_structures( liquid_
 	/* Initializing dynamics parameters and dynamics save options */
   instant_change_dynamics_spherical_mono( icv, folder, fname, dp, dso, 1 );
   instant_change_variables_free( &icv );
+  free(fname);
   return;
 }

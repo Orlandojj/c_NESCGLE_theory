@@ -186,7 +186,9 @@ double k, const liquid_params lp ){
 			else if (strcmp( fun, "is" ) == 0 ){ return is_hs_vw( lp.phi, k );}
 			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hs_vw( lp.phi, k );}
 		}
-		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		else{ printf("%s","Not a valid structural approximation for ");
+		printf("%s",sys); 
+		exit(1);}
 	}
 	else if ( strcmp( sys, "HSSW" ) == 0 ){
 		double lambda = lp.up[0];
@@ -195,7 +197,10 @@ double k, const liquid_params lp ){
 			else if (strcmp( fun, "is" ) == 0 ){ return is_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
 			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hssw_vwsh( lp.phi, lp.Tem, lambda, k );}
 		}
-		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		else{ 
+			printf("%s","Not a valid structural approximation for ");
+			printf("%s",sys); 
+			exit(1);}
 	}
 	else if ( strcmp( sys, "HSDBLEXP" ) == 0 ){
 		if ( lp.nup == 3 ) {
@@ -208,9 +213,12 @@ double k, const liquid_params lp ){
 				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
 				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
 			}
-			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+			else{ 
+				printf("%s","Not a valid structural approximation for ");
+				printf("%s",sys); 
+				exit(1);}
 		}
-		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		else{printf("%s","Incorrect number of parameters for ");printf("%s",sys); exit(1);}
 		}
 	else if ( strcmp( sys, "HSDBLEXP2" ) == 0 ){
 		if ( lp.nup == 3 ) {
@@ -223,9 +231,9 @@ double k, const liquid_params lp ){
 				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
 				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_exp_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
 			}
-			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+			else{ printf("%s","Not a valid structural approximation for ");printf("%s",sys); exit(1);}
 		}
-		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		else{printf("%s","Incorrect number of parameters for ");printf("%s",sys); exit(1);}
 	}
 	else if ( strcmp( sys, "HSDBLEYUK" ) == 0 ){
 		if ( lp.nup == 3 ) {
@@ -238,9 +246,9 @@ double k, const liquid_params lp ){
 				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_yukawa_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
 				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_yukawa_vwsh( lp.phi, Ta, Tr, za, zr, k  );}
 			}
-			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+			else{ printf("%s","Not a valid structural approximation for ");printf("%s",sys); exit(1);}
 		}
-		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		else{printf("%s","Incorrect number of parameters for ");printf("%s",sys); exit(1);}
 		}
 	else if ( strcmp( sys, "HSDBLEYUK2" ) == 0 ){
 		if ( lp.nup == 3 ) {
@@ -253,9 +261,9 @@ double k, const liquid_params lp ){
 				else if (strcmp( fun, "is" ) == 0 ){ return is_dble_yukawa_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
 				else if (strcmp( fun, "sk" ) == 0 ){ return sk_dble_yukawa_vwsh2( lp.phi, Ta, Tr, za, zr, k  );}
 			}
-			else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+			else{ printf("%s","Not a valid structural approximation for ");printf("%s",sys); exit(1);}
 		}
-		else{printf("Incorrect number of parameters for ");printf(sys); exit(1);}
+		else{printf("%s","Incorrect number of parameters for ");printf("%s",sys); exit(1);}
 	}
 	else if ( strcmp( sys, "HD" ) == 0 ){
 		if (strcmp( approx, "ROTH" ) == 0 ) {
@@ -263,9 +271,9 @@ double k, const liquid_params lp ){
 			else if (strcmp( fun, "is" ) == 0 ){ return is_hd_roth( lp.phi, k );}
 			else if (strcmp( fun, "sk" ) == 0 ){ return sk_hd_roth( lp.phi, k );}
 		}
-		else{ printf("Not a valid structural approximation for ");printf(sys); exit(1);}
+		else{ printf("%s","Not a valid structural approximation for ");printf("%s",sys); exit(1);}
 	}
-	else{printf("Not a valid structural system \n");exit(1);}
+	else{printf("%s","Not a valid structural system \n");exit(1);}
 }
 
 void
